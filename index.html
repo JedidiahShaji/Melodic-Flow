@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en" class="h-full">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-AR">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MelodicFlow: A Generative Music Box</title>
     
@@ -32,11 +32,55 @@
             border-radius: 50%;
             transition: all 0.05s linear;
         }
+
+        /* * Custom Slider Styles for a "Premium" Feel 
+         * We'll hide the default thumb and track, and create
+         * our own using Tailwind classes.
+        */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 8px;
+            background: #334155; /* slate-700 */
+            border-radius: 9999px;
+            outline: none;
+            cursor: pointer;
+        }
+
+        /* Webkit (Chrome, Safari) */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #e2e8f0; /* slate-200 */
+            border-radius: 50%;
+            border: 2px solid #4f46e5; /* indigo-600 */
+            transition: background 0.2s ease-in-out;
+        }
+        input[type=range]:hover::-webkit-slider-thumb {
+            background: #fff;
+        }
+
+        /* Firefox */
+        input[type=range]::-moz-range-thumb {
+            width: 20px;
+            height: 20px;
+            background: #e2e8f0; /* slate-200 */
+            border-radius: 50%;
+            border: 2px solid #4f46e5; /* indigo-600 */
+            transition: background 0.2s ease-in-out;
+        }
+        input[type=range]:hover::-moz-range-thumb {
+            background: #fff;
+        }
+
     </style>
 </head>
 <body class="h-full flex items-center justify-center antialiased">
 
-    <div class="text-center p-8">
+    <div class="text-center p-8 max-w-md w-full">
         
         <!-- App Title -->
         <h1 class="text-4xl md:text-5xl font-bold text-white mb-3">
@@ -56,44 +100,64 @@
             Loading Audio...
         </button>
 
+        <!-- --- CONTROLS --- -->
+        <div id="controls" class="mt-12 space-y-6">
+            
+            <!-- 1. Tempo Slider -->
+            <div class="w-full">
+                <label for="tempo" class="block text-sm font-medium text-slate-300 mb-2">Tempo</label>
+                <input type="range" id="tempo" min="60" max="150" value="90" class="w-full">
+                <span id="tempoValue" class="text-xs text-slate-400">90 bpm</span>
+            </div>
+
+            <!-- 2. Density Slider -->
+            <div class="w-full">
+                <label for="density" class="block text-sm font-medium text-slate-300 mb-2">Note Density</label>
+                <input type="range" id="density" min="0.1" max="1" value="0.35" step="0.01" class="w-full">
+                <span id="densityValue" class="text-xs text-slate-400">35%</span>
+            </div>
+
+            <!-- 3. Reverb Slider -->
+            <div class="w-full">
+                <label for="reverb" class="block text-sm font-medium text-slate-300 mb-2">Reverb (Mix)</label>
+                <input type="range" id="reverb" min="0" max="1" value="0.3" step="0.01" class="w-full">
+                <span id="reverbValue" class="text-xs text-slate-400">30%</span>
+            </div>
+        </div>
+        <!-- --- END CONTROLS --- -->
+
     </div>
 
     <script>
         // --- DOM Elements ---
         const startButton = document.getElementById('startButton');
         const pulsar = document.getElementById('visual-pulsar');
+        // New Slider Elements
+        const tempoSlider = document.getElementById('tempo');
+        const tempoValue = document.getElementById('tempoValue');
+        const densitySlider = document.getElementById('density');
+        const densityValue = document.getElementById('densityValue');
+        const reverbSlider = document.getElementById('reverb');
+        const reverbValue = document.getElementById('reverbValue');
+
 
         // --- Audio State ---
         let isPlaying = false;
-        let isInitialized = false;
+        let isInitialized = false; // To track if Tone.start() has been called
 
-        // --- Tone.js Setup ---
-        
-        // 1. Create a simple synthesizer
-        // We use a "FMSynth" for a classic, gentle electric piano sound.
-        const synth = new Tone.FMSynth({
-            "harmonicity": 3.01,
-            "modulationIndex": 14,
-            "oscillator": { "type": "sine" },
-            "envelope": {
-                "attack": 0.01,
-                "decay": 0.1,
-                "sustain": 0.3,
-                "release": 1
-            },
-            "modulation": { "type": "square" },
-            "modulationEnvelope": {
-                "attack": 0.01,
-                "decay": 0.5,
-                "sustain": 0.1,
-                "release": 1
-            }
-        }).toDestination();
+        // --- Audio Setup ---
+
+        // 1. Create the main instrument (a Frequency Modulation Synth)
+        // We send it 'toDestination' so we can hear it.
+        // *** FIX: Added synth definition ***
+        const synth = new Tone.FMSynth().toDestination();
 
         // 2. Add some effects for that "premium" sound
         // A gentle reverb gives it space.
         const reverb = new Tone.Reverb(1.5).toDestination(); // 1.5-second decay
-        synth.connect(reverb);
+        synth.connect(reverb); // <-- This now works
+        // Set initial reverb mix (wet/dry). We'll control this with the slider.
+        reverb.wet.value = 0.3; // Start at 30% wet
 
         // 3. Define the "palette" of notes (C Major Pentatonic)
         // This is a "safe" scale where most notes sound good together,
@@ -142,39 +206,55 @@
         
         // --- Event Listeners ---
 
+        // Slider Listeners
+        tempoSlider.addEventListener('input', (e) => {
+            const newTempo = e.target.value;
+            Tone.Transport.bpm.value = newTempo;
+            tempoValue.textContent = `${newTempo} bpm`;
+        });
+
+        densitySlider.addEventListener('input', (e) => {
+            const newDensity = e.target.value;
+            density = newDensity;
+            densityValue.textContent = `${Math.floor(newDensity * 100)}%`;
+        });
+
+        reverbSlider.addEventListener('input', (e) => {
+            const newReverb = e.target.value;
+            reverb.wet.value = newReverb;
+            reverbValue.textContent = `${Math.floor(newReverb * 100)}%`;
+        });
+
+
         // The browser requires user interaction to start audio.
         // We'll use this function to initialize Tone.js on the first click.
         async function initializeAudio() {
-            if (isInitialized) return;
-
+            // This is deprecated but necessary for some browsers
             await Tone.start();
             console.log('AudioContext started and ready.');
             isInitialized = true;
-            startButton.disabled = false;
-            startButton.textContent = 'Start';
+            // No longer needed, as we enable on Tone.loaded()
+            // startButton.disabled = false;
+            // startButton.textContent = 'Start';
         }
         
         // We can initialize asynchronously as soon as the page loads,
         // but the 'Start' button click will also force it.
         // Let's try to load it gently first.
         Tone.loaded().then(() => {
-            // *** FIX ***
             // Once the library is loaded, just enable the button.
             // Don't try to start the audio context yet.
             // That MUST happen on the user's click.
             console.log('Tone.js library loaded.');
             startButton.disabled = false;
             startButton.textContent = 'Start';
-            // initializeAudio(); // <-- This was the line causing the error.
         });
 
         // Main play/stop toggle
         startButton.addEventListener('click', async () => { // <-- Add 'async'
             // If audio isn't on, this click will be the first user gesture.
-            // *** FIX ***
             // We must 'await' Tone.start() on the first click.
             if (!isInitialized) {
-                // initializeAudio(); // <-- Old way
                 await Tone.start(); // <-- New, correct way
                 console.log('AudioContext started and ready.');
                 isInitialized = true;
@@ -182,26 +262,14 @@
 
             // Toggle play/stop
             if (!isPlaying) {
-                // Start the master transport
+                // Start the transport
                 Tone.Transport.start();
-                
-                // Update button UI
                 startButton.textContent = 'Stop';
-                startButton.classList.replace('bg-indigo-600', 'bg-red-600');
-                startButton.classList.replace('hover:bg-indigo-500', 'hover:bg-red-500');
-                
                 isPlaying = true;
             } else {
-                // Stop the master transport
+                // Stop the transport
                 Tone.Transport.stop();
-                // We also reset the position to 0 so it starts fresh next time
-                Tone.Transport.position = 0;
-                
-                // Update button UI
                 startButton.textContent = 'Start';
-                startButton.classList.replace('bg-red-600', 'bg-indigo-600');
-                startButton.classList.replace('hover:bg-red-500', 'hover:bg-indigo-500');
-
                 isPlaying = false;
             }
         });
