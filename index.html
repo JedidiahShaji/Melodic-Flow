@@ -84,25 +84,57 @@
             box-shadow: 0 4px 14px rgba(200, 200, 200, 0.1);
         }
         
-        /* Focus mode buttons */
+        /* NEW: Focus mode outline buttons */
         .focus-btn {
-            background-color: #27272A; /* zinc-800 */
-            color: #A1A1AA; /* zinc-400 */
+            background-color: transparent;
+            color: #9CA3AF; /* gray-400 */
             padding: 6px 14px;
             border-radius: 9999px;
             transition: all 0.2s ease-in-out;
             font-weight: 500;
-            border: 1px solid #3F3F46; /* zinc-700 */
+            border: 1px solid #4B5563; /* gray-600 */
         }
         .focus-btn:hover {
-            background-color: #3F3F46; /* zinc-700 */
+            background-color: #374151; /* gray-700 */
             color: #FFFFFF;
         }
+        
+        /* NEW: Stop button styling */
         #stopFocusBtn {
-            background-color: #4B5563; /* gray-600 */
+            background-color: #B91C1C; /* red-700 */
+            color: #FFFFFF;
+            font-weight: 500;
+            padding: 10px 16px;
+            border-radius: 9999px;
+            transition: all 0.2s ease-in-out;
         }
         #stopFocusBtn:hover {
-            background-color: #52525B; /* zinc-600 */
+            background-color: #991B1B; /* red-800 */
+        }
+        
+        /* Helper for smooth hide/show transitions */
+        .fade-out {
+            opacity: 0;
+            transform: scale(0.95);
+            transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+            pointer-events: none;
+            position: absolute; /* Take out of flow when hiding */
+        }
+        .fade-in {
+            opacity: 1;
+            transform: scale(1);
+            transition: opacity 0.3s ease-in, transform 0.3s ease-in;
+            pointer-events: auto;
+            position: relative;
+        }
+        /* Container to manage the fade transition height */
+        .transition-container {
+            position: relative;
+            min-height: 120px; /* Adjust as needed */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
         }
     </style>
 </head>
@@ -119,31 +151,34 @@
         <!-- Main Controls -->
         <div class="bg-gray-800 shadow-xl rounded-2xl p-6 space-y-6">
             
-            <!-- Start/Stop Button -->
-            <button id="startButton" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg shadow-lg hover:bg-indigo-500 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75" disabled>
-                Loading Audio...
-            </button>
-            
-            <!-- NEW: Focus Mode -->
-            <div id="focusMode" class="text-center p-4 bg-gray-900 rounded-lg">
-                <h3 class="font-semibold text-white mb-3">Focus Mode</h3>
+            <!-- NEW: Transition Container for Start/Stop/Focus -->
+            <div class="transition-container">
                 
-                <!-- Timer Selection -->
-                <div id="focusTimeSelector" class="flex justify-center space-x-2 mb-2">
-                    <button class="focus-btn" data-time="15">15 min</button>
-                    <button class="focus-btn" data-time="25">25 min</button>
-                    <button class="focus-btn" data-time="45">45 min</button>
+                <!-- Idle State (Start + Focus Times) -->
+                <div id="idleControls" class="fade-in w-full text-center space-y-4">
+                    <!-- Start Button -->
+                    <button id="startButton" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg shadow-lg hover:bg-indigo-500 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75" disabled>
+                        Loading Audio...
+                    </button>
+                    
+                    <!-- Timer Selection -->
+                    <div id="focusTimeSelector" class="flex justify-center space-x-2">
+                        <button class="focus-btn" data-time="15">15 min</button>
+                        <button class="focus-btn" data-time="25">25 min</button>
+                        <button class="focus-btn" data-time="45">45 min</button>
+                    </div>
+                </div>
+
+                <!-- Active State (Timer Display + Stop) -->
+                <div id="activeControls" class="fade-out w-full text-center space-y-4">
+                    <div class="text-5xl font-bold text-white tabular-nums" id="timerDisplay">...</div>
+                    <button id="stopFocusBtn">Stop</button>
                 </div>
                 
-                <!-- Timer Display (Hidden by default) -->
-                <div id="focusTimerDisplay" class="hidden">
-                    <div class="text-5xl font-bold text-white tabular-nums">00:00</div>
-                    <button id="stopFocusBtn" class="focus-btn mt-3 py-2 px-5">Stop</button>
-                </div>
             </div>
 
-            <!-- NEW: Mood Switcher -->
-            <div id="moodSwitcher" class="flex justify-center space-x-2">
+            <!-- Mood Switcher -->
+            <div id="moodSwitcher" class="flex justify-center space-x-2 border-t border-gray-700 pt-6">
                 <button class="mood-btn mood-active" data-mood="ambient">Ambient</button>
                 <button class="mood-btn" data-mood="lofi">Lofi</button>
                 <button class="mood-btn" data-mood="dance">Dance</button>
@@ -197,6 +232,7 @@
     </div>
 
     <script>
+        // --- UI Elements ---
         const startButton = document.getElementById('startButton');
         const tempoSlider = document.getElementById('tempoSlider');
         const tempoValue = document.getElementById('tempoValue');
@@ -209,14 +245,16 @@
         const visualPulsar = document.getElementById('visual-pulsar');
         const moodSwitcher = document.getElementById('moodSwitcher');
 
-        // --- Focus Timer Elements ---
+        // --- NEW UI Elements ---
+        const idleControls = document.getElementById('idleControls');
+        const activeControls = document.getElementById('activeControls');
         const focusTimeSelector = document.getElementById('focusTimeSelector');
-        const focusTimerDisplay = document.getElementById('focusTimerDisplay');
+        const timerDisplay = document.getElementById('timerDisplay');
         const stopFocusBtn = document.getElementById('stopFocusBtn');
-        const timerDisplay = focusTimerDisplay.querySelector('div');
         
         let focusTimerInterval = null;
         let focusTimerEndTime = 0;
+        let isFocusMode = false;
 
         let isPlaying = false;
         let density = 0.35; // Default density
@@ -289,7 +327,7 @@
             }
         };
         
-        // 1e. NEW: Chime Synth (for timer)
+        // 1e. Chime Synth (for timer)
         const chimeSynth = new Tone.FMSynth({
             "harmonicity": 5,
             "modulationIndex": 10,
@@ -460,7 +498,7 @@
         
         // --- 8. Define Main Control Functions ---
 
-        // NEW: Function to change the mood
+        // Function to change the mood
         function setMood(newMood) {
             // Update button UI
             document.querySelectorAll('.mood-btn').forEach(btn => {
@@ -475,15 +513,12 @@
                 // Set notes and chords
                 activeScale = scales.ambient;
                 activeChords = chords.ambient;
-
                 // Set pad synth preset
                 padSynth.set(padPresets.ambient);
-
                 // Set Lofi effects "off" (clean signal)
                 lofiFilter.frequency.rampTo(20000, 0.5);
                 lofiFilter.depth.value = 0;
                 lofiCrush.bits.value = 16;
-                
                 // Mute kick
                 kickSynth.volume.rampTo(-Infinity, 0.5);
                 // Mute hi-hat
@@ -494,18 +529,14 @@
                 // Set notes and chords
                 activeScale = scales.lofi;
                 activeChords = chords.lofi;
-
                 // Set pad synth preset
                 padSynth.set(padPresets.lofi);
-
                 // Set Lofi effects "on"
                 lofiFilter.frequency.rampTo(1500, 0.5);
                 lofiFilter.depth.value = 0.2; // Add a little wobble
                 lofiCrush.bits.value = 8;
-                
                 // Mute kick
                 kickSynth.volume.rampTo(-Infinity, 0.5);
-                
                 // UN-Mute hi-hat (lofi style)
                 hiHatSynth.set(hiHatPresets.lofi);
                 hiHatPattern = hiHatPatterns.lofi;
@@ -515,23 +546,18 @@
                 // Set notes and chords
                 activeScale = scales.dance;
                 activeChords = chords.dance;
-
                 // Set pad synth preset
                 padSynth.set(padPresets.dance);
-
                 // Set Lofi effects "off"
                 lofiFilter.frequency.rampTo(20000, 0.5);
                 lofiFilter.depth.value = 0;
                 lofiCrush.bits.value = 16;
-                
                 // UN-Mute kick
                 kickSynth.volume.rampTo(0, 0.1);
-                
                 // UN-Mute hi-hat (dance style)
                 hiHatSynth.set(hiHatPresets.dance);
                 hiHatPattern = hiHatPatterns.dance;
                 hiHatSynth.volume.rampTo(-8, 0.1);
-
                 // Suggest a faster tempo
                 if (Tone.Transport.bpm.value < 100) {
                     tempoSlider.value = 110;
@@ -545,60 +571,76 @@
             hiHatStep = 0; // Reset hi-hat pattern
         }
 
-        // NEW: Function to start the music
-        async function startMusic() {
+        // Function to start the music
+        async function startMusic(focusMode = false) {
             if (isPlaying) return;
-            // The browser requires user interaction to start audio.
-            // This ensures the audio context is running.
             await Tone.start();
             
-            // Start the transport (master clock)
             Tone.Transport.start();
             isPlaying = true;
-            startButton.textContent = 'Stop';
-            startButton.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
-            startButton.classList.add('bg-red-600', 'hover:bg-red-500');
+            isFocusMode = focusMode; // Set whether we are in focus mode
+
+            // Transition UI to "Active" state
+            idleControls.classList.add('fade-out');
+            idleControls.classList.remove('fade-in');
+            activeControls.classList.add('fade-in');
+            activeControls.classList.remove('fade-out');
+            
+            // Set timer display text
+            if (isFocusMode) {
+                // Timer will be updated by its own loop
+            } else {
+                timerDisplay.textContent = "Free Play";
+            }
             
             // Start the visual loop
             requestAnimationFrame(drawLoop);
         }
         
-        // NEW: Function to stop the music
+        // Function to stop the music
         function stopMusic() {
             if (!isPlaying) return;
             
-            // Stop the transport
             Tone.Transport.stop();
             isPlaying = false;
-            startButton.textContent = 'Start';
-            startButton.classList.remove('bg-red-600', 'hover:bg-red-500');
-            startButton.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
             
             // Stop the focus timer if it's running
             if (focusTimerInterval) {
                 stopFocusTimer(false); // Stop without chime
             }
+            
+            resetUIToIdle();
         }
+        
+        // NEW: Function to reset UI to its idle state
+        function resetUIToIdle() {
+            idleControls.classList.add('fade-in');
+            idleControls.classList.remove('fade-out');
+            activeControls.classList.add('fade-in'); // This seems wrong, should be fade-out
+            activeControls.classList.remove('fade-in');
+            activeControls.classList.add('fade-out');
+
+            // Reset start button text (in case it was loading)
+            startButton.disabled = false;
+            startButton.textContent = 'Start';
+        }
+
         
         // --- 9. Define Focus Timer Functions ---
 
         function startFocusTimer(minutes) {
             // If running in "Dance" mode, switch to "Ambient" for focus
+            /* REMOVED THIS BLOCK
             if (document.querySelector('.mood-btn.mood-active').dataset.mood === 'dance') {
                 setMood('ambient');
             }
+            */
 
-            // Start music if not already playing
-            if (!isPlaying) {
-                startMusic();
-            }
+            // Start music, telling it we're in focus mode
+            startMusic(true);
             
             const durationInSeconds = minutes * 60;
             focusTimerEndTime = Date.now() + durationInSeconds * 1000;
-
-            // Update UI
-            focusTimeSelector.classList.add('hidden');
-            focusTimerDisplay.classList.remove('hidden');
             
             // Start the timer
             updateTimerDisplay(); // Call immediately
@@ -606,14 +648,15 @@
         }
 
         function stopFocusTimer(playChime = false) {
-            if (!focusTimerInterval) return;
+            if (!focusTimerInterval) {
+                // This handles case where "Stop" is hit in "Free Play"
+                if (isPlaying) stopMusic();
+                return;
+            }
             
             clearInterval(focusTimerInterval);
             focusTimerInterval = null;
-
-            // Reset UI
-            focusTimeSelector.classList.remove('hidden');
-            focusTimerDisplay.classList.add('hidden');
+            isFocusMode = false;
             
             if (playChime) {
                 // Play a nice chime sound
@@ -625,10 +668,15 @@
                 Tone.Transport.scheduleOnce((time) => {
                     stopMusic();
                 }, "+5");
+            } else {
+                // If stopped manually, just stop the music
+                stopMusic();
             }
         }
         
         function updateTimerDisplay() {
+            if (!isFocusMode) return;
+            
             const now = Date.now();
             const remaining = Math.max(0, focusTimerEndTime - now);
             const seconds = Math.floor((remaining / 1000) % 60);
@@ -656,15 +704,19 @@
             padLoop.start(0);
             kickLoop.start(0);
             hiHatLoop.start(0);
+            
+            // Set initial UI state
+            resetUIToIdle();
         });
 
         // Main Start/Stop Button
         startButton.addEventListener('click', () => {
-            if (isPlaying) {
-                stopMusic();
-            } else {
-                startMusic();
-            }
+            startMusic(false); // Start in "Free Play" mode
+        });
+        
+        // NEW: Stop Button (handles all stopping)
+        stopFocusBtn.addEventListener('click', () => {
+            stopFocusTimer(false); // Stop manually, no chime
         });
 
         // --- Slider Listeners ---
@@ -696,12 +748,15 @@
         moodSwitcher.addEventListener('click', (e) => {
             if (e.target.classList.contains('mood-btn')) {
                 const newMood = e.target.dataset.mood;
-                setMood(newMood);
                 
                 // If focus timer is running, don't allow switch to "dance"
-                if (focusTimerInterval && newMood === 'dance') {
-                    setMood('ambient'); // Force back to ambient
+                /* REMOVED THIS BLOCK
+                if (isFocusMode && newMood === 'dance') {
+                    // (Optional: show a message)
+                    return; // Don't switch
                 }
+                */
+                setMood(newMood);
             }
         });
         
@@ -711,10 +766,6 @@
                 const minutes = parseInt(e.target.dataset.time);
                 startFocusTimer(minutes);
             }
-        });
-        
-        stopFocusBtn.addEventListener('click', () => {
-            stopFocusTimer(false); // Stop manually, no chime
         });
 
     </script>
