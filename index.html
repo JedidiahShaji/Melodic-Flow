@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MelodicFlow: A Generative Music Box</title>
+    
+    <!-- 1. Load Tailwind CSS for premium styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- 2. Load Google Font (Inter) for a clean, modern look -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+
+    <!-- 3. Load Tone.js (the core audio library) -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
+
+    <style>
+        /* Apply the Inter font as the default */
+        body {
+            font-family: 'Inter', sans-serif;
+            /* Create a subtle gradient for a more premium feel */
+            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+        }
+
+        /* Custom style for the pulsing visual (we'll use this later) */
+        #visual-pulsar {
+            width: 100px;
+            height: 100px;
+            background-color: #4f46e5; /* indigo-600 */
+            border-radius: 50%;
+            transition: all 0.05s linear;
+        }
+    </style>
+</head>
+<body class="h-full flex items-center justify-center antialiased">
+
+    <div class="text-center p-8">
+        
+        <!-- App Title -->
+        <h1 class="text-4xl md:text-5xl font-bold text-white mb-3">
+            MelodicFlow
+        </h1>
+        <p class="text-lg md:text-xl text-slate-300 mb-12">
+            A Generative Music Box
+        </p>
+
+        <!-- Pulsing Visual (Placeholder for now) -->
+        <div class="flex justify-center mb-12">
+            <div id="visual-pulsar" class="shadow-2xl shadow-indigo-600/50"></div>
+        </div>
+
+        <!-- Start/Stop Button -->
+        <button id="startButton" class="w-48 bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75" disabled>
+            Loading Audio...
+        </button>
+
+    </div>
+
+    <script>
+        // --- DOM Elements ---
+        const startButton = document.getElementById('startButton');
+        const pulsar = document.getElementById('visual-pulsar');
+
+        // --- Audio State ---
+        let isPlaying = false;
+        let isInitialized = false;
+
+        // --- Tone.js Setup ---
+        
+        // 1. Create a simple synthesizer
+        // We use a "FMSynth" for a classic, gentle electric piano sound.
+        const synth = new Tone.FMSynth({
+            "harmonicity": 3.01,
+            "modulationIndex": 14,
+            "oscillator": { "type": "sine" },
+            "envelope": {
+                "attack": 0.01,
+                "decay": 0.1,
+                "sustain": 0.3,
+                "release": 1
+            },
+            "modulation": { "type": "square" },
+            "modulationEnvelope": {
+                "attack": 0.01,
+                "decay": 0.5,
+                "sustain": 0.1,
+                "release": 1
+            }
+        }).toDestination();
+
+        // 2. Add some effects for that "premium" sound
+        // A gentle reverb gives it space.
+        const reverb = new Tone.Reverb(1.5).toDestination(); // 1.5-second decay
+        synth.connect(reverb);
+
+        // 3. Define the "palette" of notes (C Major Pentatonic)
+        // This is a "safe" scale where most notes sound good together,
+        // perfect for a calming generative melody.
+        const scale = [
+            'C4', 'D4', 'E4', 'G4', 'A4',
+            'C5', 'D5', 'E5', 'G5', 'A5'
+        ];
+
+        // 4. Generative Logic Parameters
+        // We will hook these up to sliders later.
+        let density = 0.35; // (35% chance a note will play)
+
+        // 5. Create a generative loop
+        // We replace Tone.Sequence with Tone.Loop.
+        // This loop will run every 16th note ('16n').
+        const generativeLoop = new Tone.Loop((time) => {
+            // Decision 1: Play or Rest?
+            // We check our "density" parameter.
+            if (Math.random() < density) {
+                
+                // Decision 2: Which note to play?
+                // Pick a random note from our scale.
+                const note = scale[Math.floor(Math.random() * scale.length)];
+                
+                // Trigger the synth. '8n' duration gives it a nice, gentle feel.
+                synth.triggerAttackRelease(note, '8n', time);
+                
+                // Trigger the visual pulse
+                // (We'll make this more accurate with Tone.Analyser later)
+                pulsar.style.transform = 'scale(1.1)';
+                setTimeout(() => {
+                    pulsar.style.transform = 'scale(1)';
+                }, 100); // Reset after 100ms
+            }
+        }, '16n'); // The interval of the loop
+
+        // 6. Set the master transport (BPM)
+        // This will be controlled by a slider later.
+        Tone.Transport.bpm.value = 90; // A calm, slow tempo
+        
+        // Start the loop (it's tied to the Transport, so it won't
+        // make sound until Tone.Transport.start() is called)
+        generativeLoop.start(0);
+
+        
+        // --- Event Listeners ---
+
+        // The browser requires user interaction to start audio.
+        // We'll use this function to initialize Tone.js on the first click.
+        async function initializeAudio() {
+            if (isInitialized) return;
+
+            await Tone.start();
+            console.log('AudioContext started and ready.');
+            isInitialized = true;
+            startButton.disabled = false;
+            startButton.textContent = 'Start';
+        }
+        
+        // We can initialize asynchronously as soon as the page loads,
+        // but the 'Start' button click will also force it.
+        // Let's try to load it gently first.
+        Tone.loaded().then(() => {
+            // *** FIX ***
+            // Once the library is loaded, just enable the button.
+            // Don't try to start the audio context yet.
+            // That MUST happen on the user's click.
+            console.log('Tone.js library loaded.');
+            startButton.disabled = false;
+            startButton.textContent = 'Start';
+            // initializeAudio(); // <-- This was the line causing the error.
+        });
+
+        // Main play/stop toggle
+        startButton.addEventListener('click', async () => { // <-- Add 'async'
+            // If audio isn't on, this click will be the first user gesture.
+            // *** FIX ***
+            // We must 'await' Tone.start() on the first click.
+            if (!isInitialized) {
+                // initializeAudio(); // <-- Old way
+                await Tone.start(); // <-- New, correct way
+                console.log('AudioContext started and ready.');
+                isInitialized = true;
+            }
+
+            // Toggle play/stop
+            if (!isPlaying) {
+                // Start the master transport
+                Tone.Transport.start();
+                
+                // Update button UI
+                startButton.textContent = 'Stop';
+                startButton.classList.replace('bg-indigo-600', 'bg-red-600');
+                startButton.classList.replace('hover:bg-indigo-500', 'hover:bg-red-500');
+                
+                isPlaying = true;
+            } else {
+                // Stop the master transport
+                Tone.Transport.stop();
+                // We also reset the position to 0 so it starts fresh next time
+                Tone.Transport.position = 0;
+                
+                // Update button UI
+                startButton.textContent = 'Start';
+                startButton.classList.replace('bg-red-600', 'bg-indigo-600');
+                startButton.classList.replace('hover:bg-red-500', 'hover:bg-indigo-500');
+
+                isPlaying = false;
+            }
+        });
+
+    </script>
+</body>
+</html>
