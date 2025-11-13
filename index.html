@@ -1,223 +1,258 @@
 <!DOCTYPE html>
-<html lang="en" class="h-full">
+<html lang="en">
 <head>
-    <meta charset="UTF-AR">
+    <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MelodicFlow: A Generative Music Box</title>
-    
-    <!-- 1. Load Tailwind CSS for premium styling -->
+    <!-- Load Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    
-    <!-- 2. Load Google Font (Inter) for a clean, modern look -->
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-
-    <!-- 3. Load Tone.js (the core audio library) -->
+    <!-- Load Tone.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
-
+    
     <style>
-        /* Apply the Inter font as the default */
+        /* Custom styles for the app */
         body {
             font-family: 'Inter', sans-serif;
-            /* Create a subtle gradient for a more premium feel */
-            background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
         }
 
-        /* Custom style for the pulsing visual */
-        #visual-pulsar {
-            width: 100px;
-            height: 100px;
-            background-color: #4f46e5; /* indigo-600 */
-            border-radius: 50%;
-            transition: all 0.05s linear;
-        }
-
-        /* * Custom Slider Styles for a "Premium" Feel 
-         * We'll hide the default thumb and track, and create
-         * our own using Tailwind classes.
-        */
-        input[type=range] {
+        /* Custom slider styles */
+        input[type="range"] {
             -webkit-appearance: none;
             appearance: none;
             width: 100%;
             height: 8px;
-            background: #334155; /* slate-700 */
+            background: #374151; /* gray-700 */
             border-radius: 9999px;
             outline: none;
-            cursor: pointer;
+            opacity: 0.7;
+            transition: opacity 0.2s;
         }
-
-        /* Webkit (Chrome, Safari) */
-        input[type=range]::-webkit-slider-thumb {
+        input[type="range"]:hover {
+            opacity: 1;
+        }
+        input[type="range"]::-webkit-slider-thumb {
             -webkit-appearance: none;
             appearance: none;
             width: 20px;
             height: 20px;
-            background: #e2e8f0; /* slate-200 */
+            background: #F0F0F0; /* Lighter gray for the thumb */
             border-radius: 50%;
-            border: 2px solid #4f46e5; /* indigo-600 */
-            transition: background 0.2s ease-in-out;
+            cursor: pointer;
+            transition: background 0.2s;
         }
-        input[type=range]:hover::-webkit-slider-thumb {
-            background: #fff;
+        input[type="range"]::-webkit-slider-thumb:hover {
+            background: #FFFFFF;
         }
-
-        /* Firefox */
-        input[type=range]::-moz-range-thumb {
+        input[type="range"]::-moz-range-thumb {
             width: 20px;
             height: 20px;
-            background: #e2e8f0; /* slate-200 */
+            background: #F0F0F0;
             border-radius: 50%;
-            border: 2px solid #4f46e5; /* indigo-600 */
-            transition: background 0.2s ease-in-out;
+            cursor: pointer;
+            border: none;
+            transition: background 0.2s;
         }
-        input[type=range]:hover::-moz-range-thumb {
-            background: #fff;
+        input[type="range"]::-moz-range-thumb:hover {
+            background: #FFFFFF;
         }
 
-        /* NEW: Mood Button Styles */
+        /* Pulsing visual element */
+        #visual-pulsar {
+            transition: transform 0.05s ease-out, opacity 0.1s ease-out;
+            transform: scale(0);
+            opacity: 0;
+        }
+        
+        /* Mood switcher buttons */
         .mood-btn {
+            background-color: #374151; /* gray-700 */
+            color: #9CA3AF; /* gray-400 */
             padding: 8px 16px;
-            font-size: 0.875rem; /* 14px */
-            font-weight: 600;
-            color: #94a3b8; /* slate-400 */
-            background-color: transparent;
-            border: 2px solid #334155; /* slate-700 */
             border-radius: 9999px;
             transition: all 0.2s ease-in-out;
-            cursor: pointer;
+            font-weight: 500;
         }
         .mood-btn:hover {
-            color: #e2e8f0; /* slate-200 */
-            border-color: #4f46e5; /* indigo-600 */
+            background-color: #4B5563; /* gray-600 */
+            color: #FFFFFF;
         }
-        .mood-active {
-            color: #fff;
-            background-color: #4f46e5; /* indigo-600 */
-            border-color: #4f46e5; /* indigo-600 */
+        .mood-btn.mood-active {
+            background-color: #F0F0F0;
+            color: #111827; /* gray-900 */
+            box-shadow: 0 4px 14px rgba(200, 200, 200, 0.1);
         }
-
+        
+        /* Focus mode buttons */
+        .focus-btn {
+            background-color: #27272A; /* zinc-800 */
+            color: #A1A1AA; /* zinc-400 */
+            padding: 6px 14px;
+            border-radius: 9999px;
+            transition: all 0.2s ease-in-out;
+            font-weight: 500;
+            border: 1px solid #3F3F46; /* zinc-700 */
+        }
+        .focus-btn:hover {
+            background-color: #3F3F46; /* zinc-700 */
+            color: #FFFFFF;
+        }
+        #stopFocusBtn {
+            background-color: #4B5563; /* gray-600 */
+        }
+        #stopFocusBtn:hover {
+            background-color: #52525B; /* zinc-600 */
+        }
     </style>
 </head>
-<body class="h-full flex items-center justify-center antialiased">
+<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen">
 
-    <div class="text-center p-8 max-w-md w-full">
+    <div class="max-w-md w-full p-8 space-y-8">
         
-        <!-- App Title -->
-        <h1 class="text-4xl md:text-5xl font-bold text-white mb-3">
-            MelodicFlow
-        </h1>
-        <p class="text-lg md:text-xl text-slate-300 mb-8">
-            A Generative Music Box
-        </p>
+        <!-- Header -->
+        <header class="text-center">
+            <h1 class="text-3xl font-bold text-white">MelodicFlow</h1>
+            <p class="text-lg text-gray-400">A Generative Music Box</p>
+        </header>
 
-        <!-- NEW: Mood Switcher -->
-        <div id="moodSwitcher" class="flex justify-center space-x-2 mb-10">
-            <button class="mood-btn mood-active" data-mood="ambient">Ambient</button>
-            <button class="mood-btn" data-mood="lofi">Lofi</button>
-            <button class="mood-btn" data-mood="dance">Dance</button>
-        </div>
-
-        <!-- Pulsing Visual -->
-        <div class="flex justify-center mb-10">
-            <div id="visual-pulsar" class="shadow-2xl shadow-indigo-600/50"></div>
-        </div>
-
-        <!-- Start/Stop Button -->
-        <button id="startButton" class="w-48 bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75 mb-10" disabled>
-            Loading Audio...
-        </button>
-
-        <!-- --- CONTROLS --- -->
-        <div id="controls" class="mt-10 space-y-6">
+        <!-- Main Controls -->
+        <div class="bg-gray-800 shadow-xl rounded-2xl p-6 space-y-6">
             
-            <!-- 1. Tempo Slider -->
-            <div class="w-full">
-                <label for="tempo" class="block text-sm font-medium text-slate-300 mb-2">Tempo</label>
-                <input type="range" id="tempo" min="60" max="150" value="90" class="w-full">
-                <span id="tempoValue" class="text-xs text-slate-400">90 bpm</span>
+            <!-- Start/Stop Button -->
+            <button id="startButton" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg shadow-lg hover:bg-indigo-500 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75" disabled>
+                Loading Audio...
+            </button>
+            
+            <!-- NEW: Focus Mode -->
+            <div id="focusMode" class="text-center p-4 bg-gray-900 rounded-lg">
+                <h3 class="font-semibold text-white mb-3">Focus Mode</h3>
+                
+                <!-- Timer Selection -->
+                <div id="focusTimeSelector" class="flex justify-center space-x-2 mb-2">
+                    <button class="focus-btn" data-time="15">15 min</button>
+                    <button class="focus-btn" data-time="25">25 min</button>
+                    <button class="focus-btn" data-time="45">45 min</button>
+                </div>
+                
+                <!-- Timer Display (Hidden by default) -->
+                <div id="focusTimerDisplay" class="hidden">
+                    <div class="text-5xl font-bold text-white tabular-nums">00:00</div>
+                    <button id="stopFocusBtn" class="focus-btn mt-3 py-2 px-5">Stop</button>
+                </div>
             </div>
 
-            <!-- 2. Density Slider -->
-            <div class="w-full">
-                <label for="density" class="block text-sm font-medium text-slate-300 mb-2">Note Density</label>
-                <input type="range" id="density" min="0.1" max="1" value="0.35" step="0.01" class="w-full">
-                <span id="densityValue" class="text-xs text-slate-400">35%</span>
-            </div>
-
-            <!-- 3. Reverb Slider -->
-            <div class="w-full">
-                <label for="reverb" class="block text-sm font-medium text-slate-300 mb-2">Reverb (Mix)</label>
-                <input type="range" id="reverb" min="0" max="1" value="0.3" step="0.01" class="w-full">
-                <span id="reverbValue" class="text-xs text-slate-400">30%</span>
-            </div>
-
-            <!-- 4. NEW: Delay Slider -->
-            <div class="w-full">
-                <label for="delay" class="block text-sm font-medium text-slate-300 mb-2">Delay (Mix)</label>
-                <input type="range" id="delay" min="0" max="1" value="0" step="0.01" class="w-full">
-                <span id="delayValue" class="text-xs text-slate-400">0%</span>
+            <!-- NEW: Mood Switcher -->
+            <div id="moodSwitcher" class="flex justify-center space-x-2">
+                <button class="mood-btn mood-active" data-mood="ambient">Ambient</button>
+                <button class="mood-btn" data-mood="lofi">Lofi</button>
+                <button class="mood-btn" data-mood="dance">Dance</button>
             </div>
         </div>
-        <!-- --- END CONTROLS --- -->
+        
+        <!-- Pulsing Visual -->
+        <div class="flex justify-center items-center h-20">
+            <div id="visual-pulsar" class="w-16 h-16 bg-indigo-500 rounded-full" style="transform: scale(0); opacity: 0;"></div>
+        </div>
+
+        <!-- Sliders -->
+        <div class="bg-gray-800 shadow-xl rounded-2xl p-6 space-y-6">
+            <!-- Tempo Slider -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <label for="tempoSlider" class="text-sm font-medium text-gray-300">Tempo</label>
+                    <span id="tempoValue" class="text-sm text-gray-400 tabular-nums">90 bpm</span>
+                </div>
+                <input type="range" id="tempoSlider" min="60" max="160" value="90" class="w-full">
+            </div>
+
+            <!-- Note Density Slider -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <label for="densitySlider" class="text-sm font-medium text-gray-300">Note Density</label>
+                    <span id="densityValue" class="text-sm text-gray-400 tabular-nums">35%</span>
+                </div>
+                <input type="range" id="densitySlider" min="0" max="100" value="35" class="w-full">
+            </div>
+
+            <!-- Reverb Slider -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <label for="reverbSlider" class="text-sm font-medium text-gray-300">Reverb (Wet)</label>
+                    <span id="reverbValue" class="text-sm text-gray-400 tabular-nums">25%</span>
+                </div>
+                <input type="range" id="reverbSlider" min="0" max="100" value="25" class="w-full">
+            </div>
+
+            <!-- Delay Slider -->
+            <div class="space-y-2">
+                <div class="flex justify-between items-center">
+                    <label for="delaySlider" class="text-sm font-medium text-gray-300">Delay (Mix)</label>
+                    <span id="delayValue" class="text-sm text-gray-400 tabular-nums">10%</span>
+                </div>
+                <input type="range" id="delaySlider" min="0" max="100" value="10" class="w-full">
+            </div>
+        </div>
 
     </div>
 
     <script>
-        // --- DOM Elements ---
         const startButton = document.getElementById('startButton');
-        const pulsar = document.getElementById('visual-pulsar');
-        // New Slider Elements
-        const tempoSlider = document.getElementById('tempo');
+        const tempoSlider = document.getElementById('tempoSlider');
         const tempoValue = document.getElementById('tempoValue');
-        const densitySlider = document.getElementById('density');
+        const densitySlider = document.getElementById('densitySlider');
         const densityValue = document.getElementById('densityValue');
-        const reverbSlider = document.getElementById('reverb');
+        const reverbSlider = document.getElementById('reverbSlider');
         const reverbValue = document.getElementById('reverbValue');
-        const delaySlider = document.getElementById('delay');
+        const delaySlider = document.getElementById('delaySlider');
         const delayValue = document.getElementById('delayValue');
-        // NEW: Mood switcher elements
+        const visualPulsar = document.getElementById('visual-pulsar');
         const moodSwitcher = document.getElementById('moodSwitcher');
 
-
-        // --- Audio State ---
-        let isPlaying = false;
-        let isInitialized = false;
-        let currentMood = 'ambient';
-
-        // --- Audio Setup ---
-
-        // 1. Create the main instrument (a Frequency Modulation Synth)
-        const synth = new Tone.FMSynth({
-            "harmonicity": 3,
-            "modulationIndex": 10,
-            "oscillator": { "type": "fatsine" },
-            "envelope": { "attack": 0.01, "decay": 0.1, "sustain": 0.5, "release": 0.5 },
-            "modulationEnvelope": { "attack": 0.01, "decay": 0.0, "sustain": 1, "release": 0.5 }
-        });
-
-        // 1b. Create the Ambient Pad Synth
-        const padSynth = new Tone.PolySynth(Tone.AMSynth, {
-            "harmonicity": 1.2,
-            "oscillator" : { "type" : "fatsawtooth" },
-            "envelope" : { "attack" : 2.5, "decay" : 0.1, "sustain" : 1, "release" : 5 },
-        });
-        padSynth.volume.value = -18; // Very quiet
+        // --- Focus Timer Elements ---
+        const focusTimeSelector = document.getElementById('focusTimeSelector');
+        const focusTimerDisplay = document.getElementById('focusTimerDisplay');
+        const stopFocusBtn = document.getElementById('stopFocusBtn');
+        const timerDisplay = focusTimerDisplay.querySelector('div');
         
+        let focusTimerInterval = null;
+        let focusTimerEndTime = 0;
+
+        let isPlaying = false;
+        let density = 0.35; // Default density
+
+        // --- 1. Define all our Instruments ---
+
+        // 1a. Main Melody Synth
+        const synth = new Tone.FMSynth({
+            "harmonicity": 3.01,
+            "modulationIndex": 14,
+            "oscillator": { "type": "sine" },
+            "envelope": { "attack": 0.01, "decay": 0.1, "sustain": 0.1, "release": 1.2 },
+            "modulation": { "type": "square" },
+            "modulationEnvelope": { "attack": 0.02, "decay": 0.2, "sustain": 0.3, "release": 1.2 }
+        });
+
+        // 1b. Ambient Pad Synth
+        const padSynth = new Tone.PolySynth(Tone.FMSynth, {
+            "volume": -12, // Quieter than the main synth
+            "harmonicity": 1,
+            "oscillator": { "type": "fatsawtooth" },
+            "envelope": { "attack": 1.5, "decay": 0.1, "sustain": 1, "release": 3 },
+        });
+
         // --- Pad Synth Presets ---
         const padPresets = {
             ambient: {
-                "harmonicity": 1.2,
-                "oscillator" : { "type" : "fatsawtooth" },
-                "envelope" : { "attack" : 2.5, "decay" : 0.1, "sustain" : 1, "release" : 5 },
+                "harmonicity": 1,
+                "oscillator": { "type": "fatsawtooth" },
+                "envelope": { "attack": 1.5, "decay": 0.1, "sustain": 1, "release": 3 },
             },
             lofi: {
                 "harmonicity": 1,
                 "oscillator": { "type": "fatsine" }, // More like a rhodes
                 "envelope": { "attack": 0.1, "decay": 0.0, "sustain": 1, "release": 1.5 },
             },
-            // NEW: Dance pad preset
             dance: {
                 "harmonicity": 1,
                 "oscillator": { "type": "sawtooth" }, // Brighter sound
@@ -225,7 +260,7 @@
             }
         };
 
-        // 1c. NEW: Kick Drum
+        // 1c. Kick Drum
         const kickSynth = new Tone.MembraneSynth({
             "pitchDecay": 0.05,
             "octaves": 10,
@@ -235,7 +270,7 @@
         // By default, the kick is muted.
         kickSynth.volume.value = -Infinity;
 
-        // 1d. NEW: Hi-Hat
+        // 1d. Hi-Hat
         const hiHatSynth = new Tone.NoiseSynth({
             "noise": { "type": "white" },
             "envelope": { "attack": 0.001, "decay": 0.1, "sustain": 0, "release": 0.1 }
@@ -253,95 +288,91 @@
                 "envelope": { "attack": 0.001, "decay": 0.05, "sustain": 0 }
             }
         };
+        
+        // 1e. NEW: Chime Synth (for timer)
+        const chimeSynth = new Tone.FMSynth({
+            "harmonicity": 5,
+            "modulationIndex": 10,
+            "oscillator": { "type": "sine" },
+            "envelope": { "attack": 0.01, "decay": 0.5, "sustain": 0.1, "release": 1 },
+            "modulation": { "type": "triangle" }
+        });
 
-        // 2. Add some effects for that "premium" sound
-        const reverb = new Tone.Reverb(1.5).toDestination(); // <-- This is our FINAL output
-        reverb.wet.value = 0.3;
 
-        // 2b. Add PingPongDelay
-        const pingPongDelay = new Tone.PingPongDelay("4n", 0.2);
-        pingPongDelay.wet.value = 0; 
+        // --- 2. Define our Effects and Audio Chain ---
 
-        // 2c. NEW: Add Lofi Effects (initially "off")
-        const lofiFilter = new Tone.Filter(20000, 'lowpass'); // Set to 20000 (fully open)
-        const lofiCrush = new Tone.BitCrusher(16); // Set to 16 bits (clean)
+        // 2a. Reverb
+        // This is our FINAL output. Everything connects to this.
+        const reverb = new Tone.Reverb(1.5).toDestination();
+        reverb.wet.value = 0.25; // Default 25%
 
-        // 2d. Create an Analyser for the visual
-        const analyser = new Tone.Analyser('waveform', 128);
+        // 2b. Ping-Pong Delay
+        const pingPongDelay = new Tone.PingPongDelay("8n", 0.2);
+        pingPongDelay.wet.value = 0.1; // Default 10%
+        pingPongDelay.connect(reverb); // Delay feeds into Reverb
+
+        // 2c. Lofi Effects
+        const lofiFilter = new Tone.AutoFilter("16n").start();
+        lofiFilter.frequency.value = 20000; // Start fully open (clean)
+        lofiFilter.depth.value = 0; // No modulation
+
+        const lofiCrush = new Tone.BitCrusher(16); // Start at 16 bits (clean)
         
-        // --- Audio Routing (This is the important part) ---
-        
-        // 1. Main synth goes to the analyser first
-        synth.connect(analyser);
-        
-        // 2. Analysed signal goes to the Delay
-        analyser.connect(pingPongDelay);
-        
-        // 3. The Delay's output AND the Pad's output go to the Lofi effects
-        pingPongDelay.connect(lofiFilter);
-        padSynth.connect(lofiFilter);
-        
-        // 4. Lofi filter goes to crusher
+        // Chain: Filter -> Crusher -> FINAL Reverb
         lofiFilter.connect(lofiCrush);
-
-        // 5. Crusher goes to the FINAL Reverb
         lofiCrush.connect(reverb);
-        
-        // 6. The kick drum goes straight to the Lofi effects (and then reverb)
-        // This lets it get crunchy in Lofi mode too!
-        kickSynth.connect(lofiFilter);
 
-        // 7. The main synth (analysed) also goes to the Lofi effects
-        // This bypasses the delay for the "dry" signal
+        // 2d. Analyser (for visuals)
+        const analyser = new Tone.Analyser('waveform', 1024);
+
+        
+        // --- 3. Connect our Instruments to the Effects ---
+        
+        // 3a. Main Synth: Connects to Analyser AND Delay
+        synth.connect(analyser);
+        synth.connect(pingPongDelay);
+        
+        // 3b. Analyser: Connects to the Lofi effects chain
+        // This is the "dry" signal path for the synth.
         analyser.connect(lofiFilter);
 
-        // 8. NEW: Hi-hat also goes to Lofi filter
+        // 3c. Pad Synth: Connects to Lofi chain (skips delay for a clearer mix)
+        padSynth.connect(lofiFilter);
+        
+        // 3d. Kick: Connects to Lofi chain
+        kickSynth.connect(lofiFilter);
+        
+        // 3e. Hi-Hat: Connects to Lofi chain
         hiHatSynth.connect(lofiFilter);
+        
+        // 3f. Chime: Connects straight to Reverb (so it's always clean)
+        chimeSynth.connect(reverb);
 
 
-        // 3. Define the "palette" of notes
+        // --- 4. Define our Musical Content (Scales, Chords) ---
+
         const scales = {
             ambient: [
-                'C4', 'D4', 'E4', 'G4', 'A4',
-                'C5', 'D5', 'E5', 'G5', 'A5'
-            ],
+                'C4', 'E4', 'G4', 'A4', 'C5',
+                'E5', 'G5', 'A5'
+            ], // C Major Pentatonic (calm)
             lofi: [
                 'C4', 'Eb4', 'F4', 'G4', 'Bb4',
                 'C5', 'Eb5', 'F5', 'G5', 'Bb5'
-            ],
-            // NEW: Dance scale
+            ], // C Minor Bluesy (moody)
             dance: [
                 'C4', 'D4', 'E4', 'G4', 'A4',
                 'C5', 'D5', 'E5', 'G5', 'A5'
-            ] // Same as ambient, but we'll use it differently
+            ] // C Major Pentatonic (more notes)
         };
         let activeScale = scales.ambient; // Start with ambient
 
-        // 4. Generative Logic Parameters
-        let density = 0.35; // (35% chance a note will play)
-
-        // 5. Create a generative loop
-        const generativeLoop = new Tone.Loop((time) => {
-            // Decision 1: Play or Rest?
-            // We check our "density" parameter.
-            if (Math.random() < density) {
-                
-                // Decision 2: Which note to play?
-                // Pick a random note from our *active* scale.
-                const note = activeScale[Math.floor(Math.random() * activeScale.length)];
-                
-                // Trigger the synth. '8n' duration gives it a nice, gentle feel.
-                synth.triggerAttackRelease(note, '8n', time);
-            }
-        }, '16n'); // The interval of the loop
-
-        // 5b. Create a loop for the ambient pad
         const chords = {
             ambient: [
-                ['C3', 'E3', 'G3'], // C Major
-                ['G3', 'B3', 'D4'], // G Major
-                ['A3', 'C4', 'E4'], // A Minor
-                ['F3', 'A3', 'C4']  // F Major
+                ['C3', 'E3', 'G3', 'B3'], // Cmaj7
+                ['F3', 'A3', 'C4', 'E4'], // Fmaj7
+                ['G3', 'B3', 'D4', 'F4'], // G7
+                ['A3', 'C4', 'E4', 'G4']  // Am7
             ],
             lofi: [
                 ['C3', 'Eb3', 'G3', 'Bb3'], // Cm7
@@ -349,34 +380,44 @@
                 ['Ab3', 'C4', 'Eb4', 'G4'], // Abmaj7
                 ['G3', 'B3', 'D4', 'F4']  // G7
             ],
-            // NEW: Dance chords (classic 1-5-6-4 progression)
             dance: [
                 ['C3', 'E3', 'G3'], // C Major
                 ['G3', 'B3', 'D4'], // G Major
                 ['A3', 'C4', 'E4'], // A Minor
                 ['F3', 'A3', 'C4']  // F Major
-            ] // Same as ambient, but context will make it upbeat
+            ]
         };
         let activeChords = chords.ambient;
         let chordIndex = 0;
 
+        // --- 5. Define our Rhythmic Loops ---
+
+        // 5a. Main Generative Melody Loop
+        const generativeLoop = new Tone.Loop((time) => {
+            // 1. Decide if we play a note (based on density)
+            if (Math.random() < density) {
+                // 2. Pick a random note from the active scale
+                const note = activeScale[Math.floor(Math.random() * activeScale.length)];
+                
+                // 3. Play the note
+                synth.triggerAttackRelease(note, '8n', time);
+            }
+        }, '16n'); // This loop runs every 16th note
+
+        // 5b. Ambient Pad Loop
         const padLoop = new Tone.Loop((time) => {
-            // Get the current chord from the *active* set
-            const currentChord = activeChords[chordIndex];
-            // Trigger it with a long duration ('2m' = 2 measures)
-            padSynth.triggerAttackRelease(currentChord, '2m', time);
-            
-            // Move to the next chord
+            const chord = activeChords[chordIndex];
+            padSynth.triggerAttackRelease(chord, '2m', time);
             chordIndex = (chordIndex + 1) % activeChords.length;
         }, '2m'); // This loop runs every 2 measures
 
-        // 5c. NEW: Create a loop for the kick drum
+        // 5c. Kick Drum Loop
         const kickLoop = new Tone.Loop((time) => {
             // "4n" = quarter note (four-on-the-floor beat)
             kickSynth.triggerAttackRelease('C1', '8n', time);
         }, '4n');
 
-        // 5d. NEW: Create a loop for the hi-hat
+        // 5d. Hi-Hat Loop
         const hiHatPatterns = {
             ambient: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // Off
             lofi:    [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0], // Off-beat 'shaker' (on the '&')
@@ -388,114 +429,60 @@
         const hiHatLoop = new Tone.Loop((time) => {
             let patternStep = hiHatPattern[hiHatStep];
             if (patternStep === 1) {
-                // Use triggerAttack for a very short, percussive sound
                 hiHatSynth.triggerAttack(time);
             }
             hiHatStep = (hiHatStep + 1) % hiHatPattern.length;
-        }, '16n'); // This loop must run every 16th note to read the pattern
+        }, '16n'); // This loop must run every 16th note
 
 
-        // 6. Set the master transport (BPM)
+        // --- 6. Set Master Transport (BPM) ---
         Tone.Transport.bpm.value = 90; // A calm, slow tempo
-        
-        // Start the loop (it's tied to the Transport, so it won't
-        // make sound until Tone.Transport.start() is called)
-        generativeLoop.start(0);
-        padLoop.start(0);
-        kickLoop.start(0); // <-- Start the kick loop (it's muted, so no sound yet)
-        hiHatLoop.start(0); // <-- Start the hi-hat loop (also muted)
+        Tone.Transport.swing = 0.2; // Add a little human swing
 
-        
-        // --- Visual Loop ---
-        // Function to update visual based on analyser
+
+        // --- 7. Define Visual Loop ---
         function drawLoop() {
-            // Get the analyser's value (an array of numbers)
-            const values = analyser.getValue();
-            // We'll just take the first value and find its magnitude
-            let sum = 0;
-            if (values.length > 0) {
-                // Let's average the first few values for a stable "pulse"
-                for(let i = 0; i < 10; i++) {
-                    sum += Math.abs(values[i] || 0); // (add || 0 for safety)
-                }
-                let avg = sum / 10;
-                
-                // Map the value to a scale transformation
-                // The '1' is the base scale, and 'avg * 5' is the pulse amount.
-                // We multiply by 5 just to make the effect more visible.
-                const scale = 1 + avg * 5;
-                
-                // Apply the scale to the pulsar element
-                pulsar.style.transform = `scale(${scale})`;
-            }
-
-            // Keep the loop running if we are playing
             if (isPlaying) {
-                requestAnimationFrame(drawLoop);
+                const value = analyser.getValue()[0]; // Get analyser value
+                // Map the value (which is -1 to 1) to a scale (0 to 1)
+                const scale = (value + 1) / 2;
+                visualPulsar.style.transform = `scale(${scale * 1.5})`; // Scale up to 1.5
+                visualPulsar.style.opacity = `${Math.max(0.2, scale)}`; // Minimum opacity of 0.2
+            } else {
+                // Fade out when stopped
+                visualPulsar.style.transform = 'scale(0)';
+                visualPulsar.style.opacity = '0';
             }
+            // Request the next frame
+            requestAnimationFrame(drawLoop);
         }
 
-        // --- Event Listeners ---
+        
+        // --- 8. Define Main Control Functions ---
 
-        // Slider Listeners
-        tempoSlider.addEventListener('input', (e) => {
-            const newTempo = e.target.value;
-            Tone.Transport.bpm.value = newTempo;
-            tempoValue.textContent = `${newTempo} bpm`;
-        });
-
-        densitySlider.addEventListener('input', (e) => {
-            const newDensity = e.target.value;
-            density = newDensity;
-            densityValue.textContent = `${Math.floor(newDensity * 100)}%`;
-        });
-
-        reverbSlider.addEventListener('input', (e) => {
-            const newReverb = e.target.value;
-            reverb.wet.value = newReverb;
-            reverbValue.textContent = `${Math.floor(newReverb * 100)}%`;
-        });
-
-        delaySlider.addEventListener('input', (e) => {
-            const newDelay = e.target.value;
-            pingPongDelay.wet.value = newDelay;
-            delayValue.textContent = `${Math.floor(newDelay * 100)}%`;
-        });
-
-        // NEW: Mood Switcher Listener (using event delegation)
-        moodSwitcher.addEventListener('click', (e) => {
-            const button = e.target.closest('.mood-btn');
-            if (!button) return; // Clicked in the gap
-
-            const newMood = button.dataset.mood;
-            if (newMood === currentMood) return; // Already on this mood
-            
-            setMood(newMood);
-        });
-
+        // NEW: Function to change the mood
         function setMood(newMood) {
-            currentMood = newMood;
-
-            // 1. Update Button UI
+            // Update button UI
             document.querySelectorAll('.mood-btn').forEach(btn => {
-                btn.classList.remove('mood-active');
                 if (btn.dataset.mood === newMood) {
                     btn.classList.add('mood-active');
+                } else {
+                    btn.classList.remove('mood-active');
                 }
             });
 
-            // 2. Update Audio Parameters
             if (newMood === 'ambient') {
                 // Set notes and chords
                 activeScale = scales.ambient;
                 activeChords = chords.ambient;
-                
+
                 // Set pad synth preset
                 padSynth.set(padPresets.ambient);
-                
+
                 // Set Lofi effects "off" (clean signal)
-                lofiFilter.frequency.rampTo(20000, 0.5); // Open filter
-                lofiCrush.bits.value = 16; // 16 bits (clean)
+                lofiFilter.frequency.rampTo(20000, 0.5);
+                lofiFilter.depth.value = 0;
+                lofiCrush.bits.value = 16;
                 
                 // Mute kick
                 kickSynth.volume.rampTo(-Infinity, 0.5);
@@ -512,8 +499,9 @@
                 padSynth.set(padPresets.lofi);
 
                 // Set Lofi effects "on"
-                lofiFilter.frequency.rampTo(1500, 0.5); // Muffled filter
-                lofiCrush.bits.value = 8; // 8 bits (crunchy)
+                lofiFilter.frequency.rampTo(1500, 0.5);
+                lofiFilter.depth.value = 0.2; // Add a little wobble
+                lofiCrush.bits.value = 8;
                 
                 // Mute kick
                 kickSynth.volume.rampTo(-Infinity, 0.5);
@@ -533,17 +521,19 @@
 
                 // Set Lofi effects "off"
                 lofiFilter.frequency.rampTo(20000, 0.5);
+                lofiFilter.depth.value = 0;
                 lofiCrush.bits.value = 16;
                 
                 // UN-Mute kick
-                kickSynth.volume.rampTo(0, 0.1); // 0dB (full volume)
-
+                kickSynth.volume.rampTo(0, 0.1);
+                
                 // UN-Mute hi-hat (dance style)
                 hiHatSynth.set(hiHatPresets.dance);
                 hiHatPattern = hiHatPatterns.dance;
-                hiHatSynth.volume.rampTo(-8, 0.1); // Louder 'hat' volume
+                hiHatSynth.volume.rampTo(-8, 0.1);
 
-                // Suggest a faster tempo (but don't force it)
+auto
+                // Suggest a faster tempo
                 if (Tone.Transport.bpm.value < 100) {
                     tempoSlider.value = 110;
                     Tone.Transport.bpm.value = 110;
@@ -556,47 +546,176 @@
             hiHatStep = 0; // Reset hi-hat pattern
         }
 
-
-        // The browser requires user interaction to start audio.
-        async function initializeAudio() {
+        // NEW: Function to start the music
+        async function startMusic() {
+            if (isPlaying) return;
+            // The browser requires user interaction to start audio.
+            // This ensures the audio context is running.
             await Tone.start();
-            console.log('AudioContext started and ready.');
-            isInitialized = true;
+            
+            // Start the transport (master clock)
+            Tone.Transport.start();
+            isPlaying = true;
+            startButton.textContent = 'Stop';
+            startButton.classList.remove('bg-indigo-600', 'hover:bg-indigo-500');
+            startButton.classList.add('bg-red-600', 'hover:bg-red-500');
+            
+            // Start the visual loop
+            requestAnimationFrame(drawLoop);
         }
         
-        // We can initialize asynchronously as soon as the page loads,
-        // but the 'Start' button click will also force it.
+        // NEW: Function to stop the music
+        function stopMusic() {
+            if (!isPlaying) return;
+            
+            // Stop the transport
+            Tone.Transport.stop();
+            isPlaying = false;
+            startButton.textContent = 'Start';
+            startButton.classList.remove('bg-red-600', 'hover:bg-red-500');
+            startButton.classList.add('bg-indigo-600', 'hover:bg-indigo-500');
+            
+            // Stop the focus timer if it's running
+            if (focusTimerInterval) {
+                stopFocusTimer(false); // Stop without chime
+            }
+        }
+        
+        // --- 9. Define Focus Timer Functions ---
+
+        function startFocusTimer(minutes) {
+            // If running in "Dance" mode, switch to "Ambient" for focus
+            if (document.querySelector('.mood-btn.mood-active').dataset.mood === 'dance') {
+                setMood('ambient');
+            }
+
+            // Start music if not already playing
+            if (!isPlaying) {
+                startMusic();
+            }
+            
+            const durationInSeconds = minutes * 60;
+            focusTimerEndTime = Date.now() + durationInSeconds * 1000;
+
+            // Update UI
+            focusTimeSelector.classList.add('hidden');
+            focusTimerDisplay.classList.remove('hidden');
+            
+            // Start the timer
+            updateTimerDisplay(); // Call immediately
+            focusTimerInterval = setInterval(updateTimerDisplay, 1000);
+        }
+
+        function stopFocusTimer(playChime = false) {
+            if (!focusTimerInterval) return;
+            
+            clearInterval(focusTimerInterval);
+            focusTimerInterval = null;
+
+            // Reset UI
+            focusTimeSelector.classList.remove('hidden');
+            focusTimerDisplay.classList.add('hidden');
+            
+            if (playChime) {
+                // Play a nice chime sound
+                chimeSynth.triggerAttackRelease('C5', '2n', Tone.now());
+                chimeSynth.triggerAttackRelease('E5', '2n', Tone.now() + 0.5);
+                chimeSynth.triggerAttackRelease('G5', '2n', Tone.now() + 1.0);
+                
+                // Gently fade out music over 5 seconds
+                Tone.Transport.scheduleOnce((time) => {
+                    stopMusic();
+                }, "+5");
+            }
+        }
+        
+        function updateTimerDisplay() {
+            const now = Date.now();
+            const remaining = Math.max(0, focusTimerEndTime - now);
+            const seconds = Math.floor((remaining / 1000) % 60);
+            const minutes = Math.floor((remaining / (1000 * 60)) % 60);
+            
+            timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+            
+            if (remaining === 0) {
+                stopFocusTimer(true); // Timer finished, play chime
+            }
+        }
+
+
+        // --- 10. Add Event Listeners ---
+        
+        // Wait for Tone.js to be loaded
         Tone.loaded().then(() => {
-            // Once the library is loaded, just enable the button.
-            // Don't try to start the audio context yet.
-            // That MUST happen on the user's click.
-            console.log('Tone.js library loaded.');
+            // All synths and loops are ready.
+            // Enable the start button.
             startButton.disabled = false;
             startButton.textContent = 'Start';
+            
+            // Start all loops (they won't make sound until Tone.Transport.start() is called)
+            generativeLoop.start(0);
+            padLoop.start(0);
+            kickLoop.start(0);
+            hiHatLoop.start(0);
         });
 
-        // Main play/stop toggle
-        startButton.addEventListener('click', async () => {
-            // If audio isn't on, this click will be the first user gesture.
-            // We must 'await' Tone.start() on the first click.
-            if (!isInitialized) {
-                await initializeAudio();
-            }
-
-            // Toggle play/stop
-            if (!isPlaying) {
-                // Start the transport
-                Tone.Transport.start();
-                startButton.textContent = 'Stop';
-                isPlaying = true;
-                // Start the visual draw loop
-                requestAnimationFrame(drawLoop);
+        // Main Start/Stop Button
+        startButton.addEventListener('click', () => {
+            if (isPlaying) {
+                stopMusic();
             } else {
-                // Stop the transport
-                Tone.Transport.stop();
-                startButton.textContent = 'Start';
-                isPlaying = false;
+                startMusic();
             }
+        });
+
+        // --- Slider Listeners ---
+        tempoSlider.addEventListener('input', (e) => {
+            const bpm = parseInt(e.target.value);
+            Tone.Transport.bpm.value = bpm;
+            tempoValue.textContent = `${bpm} bpm`;
+        });
+
+        densitySlider.addEventListener('input', (e) => {
+            const percent = parseInt(e.target.value);
+            density = percent / 100.0;
+            densityValue.textContent = `${percent}%`;
+        });
+
+        reverbSlider.addEventListener('input', (e) => {
+            const percent = parseInt(e.target.value);
+            reverb.wet.value = percent / 100.0;
+            reverbValue.textContent = `${percent}%`;
+        });
+
+        delaySlider.addEventListener('input', (e) => {
+            const percent = parseInt(e.target.value);
+            pingPongDelay.wet.value = percent / 100.0;
+            delayValue.textContent = `${percent}%`;
+        });
+        
+        // --- Mood Switcher Listener ---
+        moodSwitcher.addEventListener('click', (e) => {
+            if (e.target.classList.contains('mood-btn')) {
+                const newMood = e.target.dataset.mood;
+                setMood(newMood);
+                
+                // If focus timer is running, don't allow switch to "dance"
+                if (focusTimerInterval && newMood === 'dance') {
+                    setMood('ambient'); // Force back to ambient
+                }
+            }
+        });
+        
+        // --- Focus Timer Listeners ---
+        focusTimeSelector.addEventListener('click', (e) => {
+            if (e.target.tagName === 'BUTTON') {
+                const minutes = parseInt(e.target.dataset.time);
+                startFocusTimer(minutes);
+            }
+        });
+        
+        stopFocusBtn.addEventListener('click', () => {
+            stopFocusTimer(false); // Stop manually, no chime
         });
 
     </script>
