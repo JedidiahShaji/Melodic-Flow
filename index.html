@@ -76,6 +76,28 @@
             background: #fff;
         }
 
+        /* NEW: Mood Button Styles */
+        .mood-btn {
+            padding: 8px 16px;
+            font-size: 0.875rem; /* 14px */
+            font-weight: 600;
+            color: #94a3b8; /* slate-400 */
+            background-color: transparent;
+            border: 2px solid #334155; /* slate-700 */
+            border-radius: 9999px;
+            transition: all 0.2s ease-in-out;
+            cursor: pointer;
+        }
+        .mood-btn:hover {
+            color: #e2e8f0; /* slate-200 */
+            border-color: #4f46e5; /* indigo-600 */
+        }
+        .mood-active {
+            color: #fff;
+            background-color: #4f46e5; /* indigo-600 */
+            border-color: #4f46e5; /* indigo-600 */
+        }
+
     </style>
 </head>
 <body class="h-full flex items-center justify-center antialiased">
@@ -86,22 +108,28 @@
         <h1 class="text-4xl md:text-5xl font-bold text-white mb-3">
             MelodicFlow
         </h1>
-        <p class="text-lg md:text-xl text-slate-300 mb-12">
+        <p class="text-lg md:text-xl text-slate-300 mb-8">
             A Generative Music Box
         </p>
 
+        <!-- NEW: Mood Switcher -->
+        <div id="moodSwitcher" class="flex justify-center space-x-2 mb-10">
+            <button class="mood-btn mood-active" data-mood="ambient">Ambient</button>
+            <button class="mood-btn" data-mood="lofi">Lofi</button>
+        </div>
+
         <!-- Pulsing Visual -->
-        <div class="flex justify-center mb-12">
+        <div class="flex justify-center mb-10">
             <div id="visual-pulsar" class="shadow-2xl shadow-indigo-600/50"></div>
         </div>
 
         <!-- Start/Stop Button -->
-        <button id="startButton" class="w-48 bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75" disabled>
+        <button id="startButton" class="w-48 bg-indigo-600 text-white font-semibold py-3 px-6 rounded-lg shadow-lg transition-all duration-300 ease-in-out transform hover:scale-105 hover:bg-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75 mb-10" disabled>
             Loading Audio...
         </button>
 
         <!-- --- CONTROLS --- -->
-        <div id="controls" class="mt-12 space-y-6">
+        <div id="controls" class="mt-10 space-y-6">
             
             <!-- 1. Tempo Slider -->
             <div class="w-full">
@@ -146,48 +174,63 @@
         const densityValue = document.getElementById('densityValue');
         const reverbSlider = document.getElementById('reverb');
         const reverbValue = document.getElementById('reverbValue');
-        // NEW: Delay slider elements
         const delaySlider = document.getElementById('delay');
         const delayValue = document.getElementById('delayValue');
+        // NEW: Mood switcher elements
+        const moodSwitcher = document.getElementById('moodSwitcher');
 
 
         // --- Audio State ---
         let isPlaying = false;
-        let isInitialized = false; // To track if Tone.start() has been called
+        let isInitialized = false;
+        let currentMood = 'ambient';
 
         // --- Audio Setup ---
 
         // 1. Create the main instrument (a Frequency Modulation Synth)
-        const synth = new Tone.FMSynth(); // We won't send toDestination yet
+        const synth = new Tone.FMSynth({
+            "harmonicity": 3,
+            "modulationIndex": 10,
+            "oscillator": { "type": "fatsine" },
+            "envelope": { "attack": 0.01, "decay": 0.1, "sustain": 0.5, "release": 0.5 },
+            "modulationEnvelope": { "attack": 0.01, "decay": 0.0, "sustain": 1, "release": 0.5 }
+        });
 
         // 1b. Create the Ambient Pad Synth
         const padSynth = new Tone.PolySynth(Tone.AMSynth, {
             "harmonicity": 1.2,
-            "oscillator" : {
-                "type" : "fatsawtooth"
-            },
-            "envelope" : {
-                "attack" : 2.5, // Slow attack
-                "decay" : 0.1,
-                "sustain" : 1,
-                "release" : 5 // Slow release
-            },
-        }); // <-- REMOVED .toDestination()
+            "oscillator" : { "type" : "fatsawtooth" },
+            "envelope" : { "attack" : 2.5, "decay" : 0.1, "sustain" : 1, "release" : 5 },
+        });
         padSynth.volume.value = -18; // Very quiet
+        
+        // --- Pad Synth Presets ---
+        const padPresets = {
+            ambient: {
+                "harmonicity": 1.2,
+                "oscillator" : { "type" : "fatsawtooth" },
+                "envelope" : { "attack" : 2.5, "decay" : 0.1, "sustain" : 1, "release" : 5 },
+            },
+            lofi: {
+                "harmonicity": 1,
+                "oscillator": { "type": "fatsine" }, // More like a rhodes
+                "envelope": { "attack": 0.1, "decay": 0.0, "sustain": 1, "release": 1.5 },
+            }
+        };
 
         // 2. Add some effects for that "premium" sound
-        // A gentle reverb gives it space.
         const reverb = new Tone.Reverb(1.5).toDestination(); // <-- This is our FINAL output
-        // Set initial reverb mix (wet/dry). We'll control this with the slider.
-        reverb.wet.value = 0.3; // Start at 30% wet
+        reverb.wet.value = 0.3;
 
-        // 2b. NEW: Add PingPongDelay
-        // "4n" = quarter note delay. 0.2 feedback.
+        // 2b. Add PingPongDelay
         const pingPongDelay = new Tone.PingPongDelay("4n", 0.2);
-        // Set initial mix to 0 (off).
         pingPongDelay.wet.value = 0; 
 
-        // 2c. Create an Analyser for the visual
+        // 2c. NEW: Add Lofi Effects (initially "off")
+        const lofiFilter = new Tone.Filter(20000, 'lowpass'); // Set to 20000 (fully open)
+        const lofiCrush = new Tone.BitCrusher(16); // Set to 16 bits (clean)
+
+        // 2d. Create an Analyser for the visual
         const analyser = new Tone.Analyser('waveform', 128);
         
         // --- Audio Routing (This is the important part) ---
@@ -195,29 +238,36 @@
         // 1. Main synth goes to the analyser first
         synth.connect(analyser);
         
-        // 2. Analysed signal goes to the Reverb
-        analyser.connect(reverb);
-        
-        // 3. Analysed signal ALSO goes to the Delay
+        // 2. Analysed signal goes to the Delay
         analyser.connect(pingPongDelay);
-
-        // 4. The Delay's output ALSO goes to the Reverb
-        // (This makes the echos sound "washed out" and spacious)
-        pingPongDelay.connect(reverb);
-
-        // 5. The Pad synth goes straight to the Reverb
-        padSynth.connect(reverb);
         
-        // (Now, all sound correctly goes through the Reverb as the final master)
+        // 3. The Delay's output AND the Pad's output go to the Lofi effects
+        pingPongDelay.connect(lofiFilter);
+        padSynth.connect(lofiFilter);
+        
+        // 4. Lofi filter goes to crusher
+        lofiFilter.connect(lofiCrush);
+
+        // 5. Crusher goes to the FINAL Reverb
+        lofiCrush.connect(reverb);
+        
+        // 6. The main synth (analysed) also goes to the Lofi effects
+        // This bypasses the delay for the "dry" signal
+        analyser.connect(lofiFilter);
 
 
-        // 3. Define the "palette" of notes (C Major Pentatonic)
-        // This is a "safe" scale where most notes sound good together,
-        // perfect for a calming generative melody.
-        const scale = [
-            'C4', 'D4', 'E4', 'G4', 'A4',
-            'C5', 'D5', 'E5', 'G5', 'A5'
-        ];
+        // 3. Define the "palette" of notes
+        const scales = {
+            ambient: [
+                'C4', 'D4', 'E4', 'G4', 'A4',
+                'C5', 'D5', 'E5', 'G5', 'A5'
+            ],
+            lofi: [
+                'C4', 'Eb4', 'F4', 'G4', 'Bb4',
+                'C5', 'Eb5', 'F5', 'G5', 'Bb5'
+            ]
+        };
+        let activeScale = scales.ambient; // Start with ambient
 
         // 4. Generative Logic Parameters
         let density = 0.35; // (35% chance a note will play)
@@ -229,8 +279,8 @@
             if (Math.random() < density) {
                 
                 // Decision 2: Which note to play?
-                // Pick a random note from our scale.
-                const note = scale[Math.floor(Math.random() * scale.length)];
+                // Pick a random note from our *active* scale.
+                const note = activeScale[Math.floor(Math.random() * activeScale.length)];
                 
                 // Trigger the synth. '8n' duration gives it a nice, gentle feel.
                 synth.triggerAttackRelease(note, '8n', time);
@@ -238,23 +288,31 @@
         }, '16n'); // The interval of the loop
 
         // 5b. Create a loop for the ambient pad
-        // We'll use a simple, pleasant chord progression
-        const chords = [
-            ['C3', 'E3', 'G3'], // C Major
-            ['G3', 'B3', 'D4'], // G Major
-            ['A3', 'C4', 'E4'], // A Minor
-            ['F3', 'A3', 'C4']  // F Major
-        ];
+        const chords = {
+            ambient: [
+                ['C3', 'E3', 'G3'], // C Major
+                ['G3', 'B3', 'D4'], // G Major
+                ['A3', 'C4', 'E4'], // A Minor
+                ['F3', 'A3', 'C4']  // F Major
+            ],
+            lofi: [
+                ['C3', 'Eb3', 'G3', 'Bb3'], // Cm7
+                ['F3', 'Ab3', 'C4', 'Eb4'], // Fm7
+                ['Ab3', 'C4', 'Eb4', 'G4'], // Abmaj7
+                ['G3', 'B3', 'D4', 'F4']  // G7
+            ]
+        };
+        let activeChords = chords.ambient;
         let chordIndex = 0;
 
         const padLoop = new Tone.Loop((time) => {
-            // Get the current chord
-            const currentChord = chords[chordIndex];
+            // Get the current chord from the *active* set
+            const currentChord = activeChords[chordIndex];
             // Trigger it with a long duration ('2m' = 2 measures)
             padSynth.triggerAttackRelease(currentChord, '2m', time);
             
             // Move to the next chord
-            chordIndex = (chordIndex + 1) % chords.length;
+            chordIndex = (chordIndex + 1) % activeChords.length;
         }, '2m'); // This loop runs every 2 measures
 
         // 6. Set the master transport (BPM)
@@ -316,12 +374,63 @@
             reverbValue.textContent = `${Math.floor(newReverb * 100)}%`;
         });
 
-        // NEW: Delay listener
         delaySlider.addEventListener('input', (e) => {
             const newDelay = e.target.value;
             pingPongDelay.wet.value = newDelay;
             delayValue.textContent = `${Math.floor(newDelay * 100)}%`;
         });
+
+        // NEW: Mood Switcher Listener (using event delegation)
+        moodSwitcher.addEventListener('click', (e) => {
+            const button = e.target.closest('.mood-btn');
+            if (!button) return; // Clicked in the gap
+
+            const newMood = button.dataset.mood;
+            if (newMood === currentMood) return; // Already on this mood
+            
+            setMood(newMood);
+        });
+
+        function setMood(newMood) {
+            currentMood = newMood;
+
+            // 1. Update Button UI
+            document.querySelectorAll('.mood-btn').forEach(btn => {
+                btn.classList.remove('mood-active');
+                if (btn.dataset.mood === newMood) {
+                    btn.classList.add('mood-active');
+                }
+            });
+
+            // 2. Update Audio Parameters
+            if (newMood === 'ambient') {
+                // Set notes and chords
+                activeScale = scales.ambient;
+                activeChords = chords.ambient;
+                
+                // Set pad synth preset
+                padSynth.set(padPresets.ambient);
+                
+                // Set Lofi effects "off" (clean signal)
+                lofiFilter.frequency.rampTo(20000, 0.5); // Open filter
+                lofiCrush.bits.value = 16; // 16 bits (clean)
+
+            } else if (newMood === 'lofi') {
+                // Set notes and chords
+                activeScale = scales.lofi;
+                activeChords = chords.lofi;
+
+                // Set pad synth preset
+                padSynth.set(padPresets.lofi);
+
+                // Set Lofi effects "on"
+                lofiFilter.frequency.rampTo(1500, 0.5); // Muffled filter
+                lofiCrush.bits.value = 8; // 8 bits (crunchy)
+            }
+            
+            // Reset chord index to avoid weird transitions
+            chordIndex = 0;
+        }
 
 
         // The browser requires user interaction to start audio.
