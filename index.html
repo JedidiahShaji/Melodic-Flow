@@ -70,10 +70,12 @@
         }
 
         /* Pulsing visual element */
-        #visual-pulsar {
-            transition: transform 0.05s ease-out, opacity 0.1s ease-out;
-            transform: scale(0);
-            opacity: 0;
+        /* REMOVED #visual-pulsar styles */
+
+        /* NEW: Canvas styles */
+        #visual-canvas {
+            width: 100%;
+            height: 100%;
         }
         
         /* Mood switcher buttons */
@@ -199,8 +201,11 @@
         </header>
 
         <!-- Pulsing Visual (Moved up) -->
+        <!-- REFACTORED: Replaced div with a canvas container -->
         <div class="flex justify-center items-center h-20">
-            <div id="visual-pulsar" class="w-16 h-16 bg-indigo-500 rounded-full" style="transform: scale(0); opacity: 0;"></div>
+            <div id="visual-container" class="w-full h-full bg-gray-800 rounded-lg overflow-hidden shadow-inner">
+                <canvas id="visual-canvas"></canvas>
+            </div>
         </div>
         
         <!-- REFACTORED: New Grid Container for modular cards -->
@@ -255,6 +260,8 @@
                         <span id="densityValue" class="text-sm text-gray-400 tabular-nums">35%</span>
                     </div>
                     <input type="range" id="densitySlider" min="0" max="100" value="35" class="w-full">
+                    <!-- NEW: Added helper text for clarity -->
+                    <p class="text-xs text-gray-500 italic pt-1">Controls the chance of a note playing on each beat.</p>
                 </div>
             </div>
             
@@ -307,16 +314,19 @@
     <script>
         // --- UI Elements ---
         const startButton = document.getElementById('startButton');
-        const tempoSlider = document.getElementById('tempoSlider');
-        const tempoValue = document.getElementById('tempoValue');
+        // ... existing code ... */
         const densitySlider = document.getElementById('densitySlider');
         const densityValue = document.getElementById('densityValue');
         const reverbSlider = document.getElementById('reverbSlider');
-        const reverbValue = document.getElementById('reverbValue');
+        // ... existing code ... */
         const delaySlider = document.getElementById('delaySlider');
         const delayValue = document.getElementById('delayValue');
-        const visualPulsar = document.getElementById('visual-pulsar');
         const moodSwitcher = document.getElementById('moodSwitcher');
+        
+        // NEW: Canvas and Analyser Elements
+        const visualContainer = document.getElementById('visual-container');
+        const visualCanvas = document.getElementById('visual-canvas');
+        const canvasCtx = visualCanvas.getContext('2d');
 
         // Focus UI Elements
         const idleControls = document.getElementById('idleControls');
@@ -448,7 +458,8 @@
         lofiCrush.connect(reverb);
 
         // 2d. Analyser (for visuals)
-        const analyser = new Tone.Analyser('waveform', 1024);
+        // REFACTORED: Changed from 'waveform' to 'fft'
+        const analyser = new Tone.Analyser('fft', 256);
 
         
         // --- 3. Connect our Instruments to the Effects ---
@@ -566,20 +577,49 @@
 
 
         // --- 7. Define Visual Loop ---
+        // REFACTORED: Replaced with FFT Spectrum Visualizer
         function drawLoop() {
-            if (isPlaying) {
-                const value = analyser.getValue()[0]; // Get analyser value
-                // Map the value (which is -1 to 1) to a scale (0 to 1)
-                const scale = (value + 1) / 2;
-                visualPulsar.style.transform = `scale(${scale * 1.5})`; // Scale up to 1.5
-                visualPulsar.style.opacity = `${Math.max(0.2, scale)}`; // Minimum opacity of 0.2
-            } else {
-                // Fade out when stopped
-                visualPulsar.style.transform = 'scale(0)';
-                visualPulsar.style.opacity = '0';
+            requestAnimationFrame(drawLoop); // Keep the loop running
+
+            if (!isPlaying) {
+                // Clear canvas when not playing
+                canvasCtx.clearRect(0, 0, visualCanvas.width, visualCanvas.height);
+                return;
             }
-            // Request the next frame
-            requestAnimationFrame(drawLoop);
+
+            const fftData = analyser.getValue(); // Get frequency data
+
+            // Clear the canvas for the new frame
+            canvasCtx.clearRect(0, 0, visualCanvas.width, visualCanvas.height);
+            
+            const numBars = fftData.length;
+            const barWidth = visualCanvas.width / numBars;
+            
+            // Create a gradient for the bars
+            const gradient = canvasCtx.createLinearGradient(0, 0, 0, visualCanvas.height);
+            gradient.addColorStop(0, '#6366F1'); // indigo-500
+            gradient.addColorStop(0.7, '#8B5CF6'); // purple-500
+            gradient.addColorStop(1, '#1F2937'); // gray-800 (fade to bg)
+
+            canvasCtx.fillStyle = gradient;
+
+            for (let i = 0; i < numBars; i++) {
+                const db = fftData[i];
+                // Normalize the dB value (from -100dB to -20dB)
+                const minDb = -100;
+                const maxDb = -20;
+                let barHeight = ((db - minDb) / (maxDb - minDb)) * visualCanvas.height;
+                
+                // Clamp values
+                if (barHeight < 0) barHeight = 0;
+                if (barHeight > visualCanvas.height) barHeight = visualCanvas.height;
+
+                const x = i * barWidth;
+                const y = visualCanvas.height - barHeight;
+
+                // Draw the bar (with a 1px gap)
+                canvasCtx.fillRect(x, y, barWidth - 1, barHeight);
+            }
         }
 
         
@@ -680,9 +720,8 @@
                 timerDisplay.textContent = "Free Play";
             }
             
-            // Start the visual loop
-            requestAnimationFrame(drawLoop);
-
+            // REMOVED: requestAnimationFrame(drawLoop) - We start this on load now
+            
             // REFACTORED: Enable record button
             recordButton.disabled = false;
             recordHelpText.style.display = 'none';
@@ -802,6 +841,16 @@
             
             // Set initial UI state
             resetUIToIdle();
+
+            // --- NEW: Setup Canvas Sizing and Start Draw Loop ---
+            function resizeCanvas() {
+                // Set canvas internal resolution to match its displayed size
+                visualCanvas.width = visualContainer.clientWidth;
+                visualCanvas.height = visualContainer.clientHeight;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas(); // Call once to set initial size
+            drawLoop(); // Start the draw loop
             
             // --- Setup Media Recorder ---
             mediaRecorder = new MediaRecorder(recordDestination.stream, { mimeType: 'audio/webm' });
