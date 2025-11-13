@@ -9,12 +9,23 @@
     <!-- Load Tone.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     
+    <!-- NEW: Load Google Fonts (Inter for UI, Orbitron for Title) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Orbitron:wght@700&display=swap" rel="stylesheet">
+
     <style>
         /* Custom styles for the app */
         body {
+            /* NEW: Set default font to Inter */
             font-family: 'Inter', sans-serif;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
+        }
+        
+        /* NEW: Futuristic title style */
+        .title-futuristic {
+            font-family: 'Orbitron', sans-serif;
         }
 
         /* Custom slider styles */
@@ -84,7 +95,7 @@
             box-shadow: 0 4px 14px rgba(200, 200, 200, 0.1);
         }
         
-        /* NEW: Focus mode outline buttons */
+        /* Focus mode outline buttons */
         .focus-btn {
             background-color: transparent;
             color: #9CA3AF; /* gray-400 */
@@ -99,7 +110,7 @@
             color: #FFFFFF;
         }
         
-        /* NEW: Stop button styling */
+        /* Stop button styling */
         #stopFocusBtn {
             background-color: #B91C1C; /* red-700 */
             color: #FFFFFF;
@@ -130,104 +141,166 @@
         /* Container to manage the fade transition height */
         .transition-container {
             position: relative;
-            min-height: 120px; /* Adjust as needed */
+            min-height: 120px; 
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
         }
+        
+        /* Record button styles */
+        #recordButton {
+            background-color: #1F2937; /* gray-800 */
+            color: #FCA5A5; /* red-300 */
+            border: 1px solid #B91C1C; /* red-700 */
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 9999px;
+            transition: all 0.2s ease-in-out;
+        }
+        #recordButton:hover {
+            background-color: #B91C1C;
+            color: #FFFFFF;
+        }
+        #recordButton.is-recording {
+            background-color: #B91C1C;
+            color: #FFFFFF;
+            animation: pulse 1.5s infinite;
+        }
+        /* Logic for disabled record button */
+        #recordButton:disabled {
+            background-color: #374151; /* gray-700 */
+            color: #6B7280; /* gray-500 */
+            border-color: #4B5563; /* gray-600 */
+            cursor: not-allowed;
+            opacity: 0.5;
+        }
+        #recordButton:disabled:hover {
+            background-color: #374151;
+            color: #6B7280;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
     </style>
 </head>
-<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen">
+<body class="bg-gray-900 text-gray-200 flex items-center justify-center min-h-screen p-4">
 
-    <div class="max-w-md w-full p-8 space-y-8">
+    <!-- REFACTORED: Changed max-w-lg to max-w-4xl for grid layout -->
+    <div class="max-w-4xl w-full p-6 space-y-6">
         
         <!-- Header -->
         <header class="text-center">
-            <h1 class="text-3xl font-bold text-white">MelodicFlow</h1>
+            <!-- NEW: Added classes for futuristic title -->
+            <h1 class="title-futuristic text-4xl font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">MelodicFlow</h1>
             <p class="text-lg text-gray-400">A Generative Music Box</p>
         </header>
 
-        <!-- Main Controls -->
-        <div class="bg-gray-800 shadow-xl rounded-2xl p-6 space-y-6">
-            
-            <!-- NEW: Transition Container for Start/Stop/Focus -->
-            <div class="transition-container">
-                
-                <!-- Idle State (Start + Focus Times) -->
-                <div id="idleControls" class="fade-in w-full text-center space-y-4">
-                    <!-- Start Button -->
-                    <button id="startButton" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg shadow-lg hover:bg-indigo-500 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75" disabled>
-                        Loading Audio...
-                    </button>
-                    
-                    <!-- Timer Selection -->
-                    <div id="focusTimeSelector" class="flex justify-center space-x-2">
-                        <button class="focus-btn" data-time="15">15 min</button>
-                        <button class="focus-btn" data-time="25">25 min</button>
-                        <button class="focus-btn" data-time="45">45 min</button>
-                    </div>
-                </div>
-
-                <!-- Active State (Timer Display + Stop) -->
-                <div id="activeControls" class="fade-out w-full text-center space-y-4">
-                    <div class="text-5xl font-bold text-white tabular-nums" id="timerDisplay">...</div>
-                    <button id="stopFocusBtn">Stop</button>
-                </div>
-                
-            </div>
-
-            <!-- Mood Switcher -->
-            <div id="moodSwitcher" class="flex justify-center space-x-2 border-t border-gray-700 pt-6">
-                <button class="mood-btn mood-active" data-mood="ambient">Ambient</button>
-                <button class="mood-btn" data-mood="lofi">Lofi</button>
-                <button class="mood-btn" data-mood="dance">Dance</button>
-            </div>
-        </div>
-        
-        <!-- Pulsing Visual -->
+        <!-- Pulsing Visual (Moved up) -->
         <div class="flex justify-center items-center h-20">
             <div id="visual-pulsar" class="w-16 h-16 bg-indigo-500 rounded-full" style="transform: scale(0); opacity: 0;"></div>
         </div>
+        
+        <!-- REFACTORED: New Grid Container for modular cards -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
 
-        <!-- Sliders -->
-        <div class="bg-gray-800 shadow-xl rounded-2xl p-6 space-y-6">
-            <!-- Tempo Slider -->
-            <div class="space-y-2">
-                <div class="flex justify-between items-center">
-                    <label for="tempoSlider" class="text-sm font-medium text-gray-300">Tempo</label>
-                    <span id="tempoValue" class="text-sm text-gray-400 tabular-nums">90 bpm</span>
+            <!-- Card 1 - Transport / Master Control -->
+            <div class="bg-gray-800 shadow-xl rounded-2xl p-6 space-y-6">
+                <!-- NEW: Changed title to be clearer -->
+                <h2 class="text-lg font-medium text-gray-300 mb-2 text-center">Master Control</h2>
+                <!-- Transition Container for Start/Stop/Focus -->
+                <div class="transition-container">
+                    
+                    <!-- Idle State (Start + Focus Times) -->
+                    <div id="idleControls" class="fade-in w-full text-center space-y-4">
+                        <!-- Start Button -->
+                        <button id="startButton" class="w-full bg-indigo-600 text-white font-semibold py-3 px-4 rounded-lg shadow-lg hover:bg-indigo-500 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:ring-opacity-75" disabled>
+                            Loading Audio...
+                        </button>
+                        
+                        <!-- Timer Selection -->
+                        <div id="focusTimeSelector" class="flex justify-center space-x-2">
+                            <button class="focus-btn" data-time="15">15 min</button>
+                            <button class="focus-btn" data-time="25">25 min</button>
+                            <button class="focus-btn" data-time="45">45 min</button>
+                        </div>
+                    </div>
+
+                    <!-- Active State (Timer Display + Stop) -->
+                    <div id="activeControls" class="fade-out w-full text-center space-y-4">
+                        <div class="text-5xl font-bold text-white tabular-nums" id="timerDisplay">...</div>
+                        <button id="stopFocusBtn">Stop</button>
+                    </div>
+                    
                 </div>
-                <input type="range" id="tempoSlider" min="60" max="160" value="90" class="w-full">
             </div>
 
-            <!-- Note Density Slider -->
-            <div class="space-y-2">
-                <div class="flex justify-between items-center">
-                    <label for="densitySlider" class="text-sm font-medium text-gray-300">Note Density</label>
-                    <span id="densityValue" class="text-sm text-gray-400 tabular-nums">35%</span>
+            <!-- Card 2 - Sound Palette -->
+            <div class="bg-gray-800 shadow-xl rounded-2xl p-6 space-y-6">
+                <h2 class="text-lg font-medium text-gray-300 mb-2">Sound Palette</h2>
+                
+                <!-- Mood Switcher (Moved) -->
+                <div id="moodSwitcher" class="flex justify-center space-x-2">
+                    <button class="mood-btn mood-active" data-mood="ambient">Ambient</button>
+                    <button class="mood-btn" data-mood="lofi">Lofi</button>
+                    <button class="mood-btn" data-mood="dance">Dance</button>
                 </div>
-                <input type="range" id="densitySlider" min="0" max="100" value="35" class="w-full">
+
+                <!-- Note Density Slider (Moved) -->
+                <div class="space-y-2 pt-4 border-t border-gray-700">
+                    <div class="flex justify-between items-center">
+                        <label for="densitySlider" class="text-sm font-medium text-gray-300">Note Density</label>
+                        <span id="densityValue" class="text-sm text-gray-400 tabular-nums">35%</span>
+                    </div>
+                    <input type="range" id="densitySlider" min="0" max="100" value="35" class="w-full">
+                </div>
+            </div>
+            
+            <!-- Card 3 - FX & Mixer -->
+            <div class="bg-gray-800 shadow-xl rounded-2xl p-6 space-y-6">
+                <h2 class="text-lg font-medium text-gray-300 mb-2">FX & Mixer</h2>
+                
+                <!-- Tempo Slider -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label for="tempoSlider" class="text-sm font-medium text-gray-300">Tempo</label>
+                        <span id="tempoValue" class="text-sm text-gray-400 tabular-nums">90 bpm</span>
+                    </div>
+                    <input type="range" id="tempoSlider" min="60" max="160" value="90" class="w-full">
+                </div>
+
+                <!-- Reverb Slider -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label for="reverbSlider" class="text-sm font-medium text-gray-300">Reverb (Wet)</label>
+                        <span id="reverbValue" class="text-sm text-gray-400 tabular-nums">25%</span>
+                    </div>
+                    <input type="range" id="reverbSlider" min="0" max="100" value="25" class="w-full">
+                </div>
+
+                <!-- Delay Slider -->
+                <div class="space-y-2">
+                    <div class="flex justify-between items-center">
+                        <label for="delaySlider" class="text-sm font-medium text-gray-300">Delay (Mix)</label>
+                        <span id="delayValue" class="text-sm text-gray-400 tabular-nums">10%</span>
+                    </div>
+                    <input type="range" id="delaySlider" min="0" max="100" value="10" class="w-full">
+                </div>
             </div>
 
-            <!-- Reverb Slider -->
-            <div class="space-y-2">
-                <div class="flex justify-between items-center">
-                    <label for="reverbSlider" class="text-sm font-medium text-gray-300">Reverb (Wet)</label>
-                    <span id="reverbValue" class="text-sm text-gray-400 tabular-nums">25%</span>
+            <!-- Card 4 - Output -->
+            <div class="bg-gray-800 shadow-xl rounded-2xl p-6">
+                <h2 class="text-lg font-medium text-gray-300 mb-4 text-center">Output</h2>
+                <!-- Export Audio Section (Moved) -->
+                <div class="text-center">
+                    <button id="recordButton" disabled>Start Recording</button>
+                    <p id="recordHelpText" class="text-xs text-gray-500 mt-3">Start music to enable recording.</p>
                 </div>
-                <input type="range" id="reverbSlider" min="0" max="100" value="25" class="w-full">
             </div>
-
-            <!-- Delay Slider -->
-            <div class="space-y-2">
-                <div class="flex justify-between items-center">
-                    <label for="delaySlider" class="text-sm font-medium text-gray-300">Delay (Mix)</label>
-                    <span id="delayValue" class="text-sm text-gray-400 tabular-nums">10%</span>
-                </div>
-                <input type="range" id="delaySlider" min="0" max="100" value="10" class="w-full">
-            </div>
-        </div>
+            
+        </div> <!-- End of Grid Container -->
 
     </div>
 
@@ -245,7 +318,7 @@
         const visualPulsar = document.getElementById('visual-pulsar');
         const moodSwitcher = document.getElementById('moodSwitcher');
 
-        // --- NEW UI Elements ---
+        // Focus UI Elements
         const idleControls = document.getElementById('idleControls');
         const activeControls = document.getElementById('activeControls');
         const focusTimeSelector = document.getElementById('focusTimeSelector');
@@ -258,6 +331,15 @@
 
         let isPlaying = false;
         let density = 0.35; // Default density
+
+        // --- Audio Recorder Elements ---
+        const recordButton = document.getElementById('recordButton');
+        const recordHelpText = document.getElementById('recordHelpText'); // New help text element
+        let mediaRecorder;
+        let recordedChunks = [];
+        let isRecording = false;
+        // Create a new audio "destination" node for recording
+        const recordDestination = Tone.context.createMediaStreamDestination();
 
         // --- 1. Define all our Instruments ---
 
@@ -341,8 +423,13 @@
 
         // 2a. Reverb
         // This is our FINAL output. Everything connects to this.
-        const reverb = new Tone.Reverb(1.5).toDestination();
+        const reverb = new Tone.Reverb(1.5);
         reverb.wet.value = 0.25; // Default 25%
+        
+        // Connect reverb to both the speakers AND our recording destination
+        reverb.toDestination();
+        reverb.connect(recordDestination);
+
 
         // 2b. Ping-Pong Delay
         const pingPongDelay = new Tone.PingPongDelay("8n", 0.2);
@@ -595,6 +682,10 @@
             
             // Start the visual loop
             requestAnimationFrame(drawLoop);
+
+            // REFACTORED: Enable record button
+            recordButton.disabled = false;
+            recordHelpText.style.display = 'none';
         }
         
         // Function to stop the music
@@ -609,16 +700,27 @@
                 stopFocusTimer(false); // Stop without chime
             }
             
+            // REFACTORED: Stop recording if it was active
+            if (isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+                recordButton.textContent = 'Start Recording';
+                recordButton.classList.remove('is-recording');
+            }
+
+            // REFACTORED: Disable record button
+            recordButton.disabled = true;
+            recordHelpText.style.display = 'block';
+
             resetUIToIdle();
         }
         
-        // NEW: Function to reset UI to its idle state
+        // Function to reset UI to its idle state
         function resetUIToIdle() {
             idleControls.classList.add('fade-in');
             idleControls.classList.remove('fade-out');
-            activeControls.classList.add('fade-in'); // This seems wrong, should be fade-out
-            activeControls.classList.remove('fade-in');
             activeControls.classList.add('fade-out');
+            activeControls.classList.remove('fade-in');
 
             // Reset start button text (in case it was loading)
             startButton.disabled = false;
@@ -629,13 +731,6 @@
         // --- 9. Define Focus Timer Functions ---
 
         function startFocusTimer(minutes) {
-            // If running in "Dance" mode, switch to "Ambient" for focus
-            /* REMOVED THIS BLOCK
-            if (document.querySelector('.mood-btn.mood-active').dataset.mood === 'dance') {
-                setMood('ambient');
-            }
-            */
-
             // Start music, telling it we're in focus mode
             startMusic(true);
             
@@ -658,7 +753,7 @@
             focusTimerInterval = null;
             isFocusMode = false;
             
-            if (playChime) {
+            if (playChGime) {
                 // Play a nice chime sound
                 chimeSynth.triggerAttackRelease('C5', '2n', Tone.now());
                 chimeSynth.triggerAttackRelease('E5', '2n', Tone.now() + 0.5);
@@ -707,15 +802,37 @@
             
             // Set initial UI state
             resetUIToIdle();
+            
+            // --- Setup Media Recorder ---
+            mediaRecorder = new MediaRecorder(recordDestination.stream, { mimeType: 'audio/webm' });
+
+            mediaRecorder.ondataavailable = (evt) => {
+                if (evt.data.size > 0) {
+                    recordedChunks.push(evt.data);
+                }
+            };
+
+            mediaRecorder.onstop = () => {
+                const blob = new Blob(recordedChunks, { type: 'audio/webm' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `MelodicFlow-Recording.webm`;
+                a.click();
+                URL.revokeObjectURL(url);
+                recordedChunks = [];
+            };
+            
         });
 
-        // Main Start/Stop Button
+        // Main Start Button
         startButton.addEventListener('click', () => {
             startMusic(false); // Start in "Free Play" mode
         });
         
-        // NEW: Stop Button (handles all stopping)
-        stopFocusBtn.addEventListener('click', () => {
+        // Stop Button (handles all stopping)
+        // FIX: Removed the extra '();' which was causing a SyntaxError
+        stopFocusBtn.addEventListener('click', () => { 
             stopFocusTimer(false); // Stop manually, no chime
         });
 
@@ -748,14 +865,6 @@
         moodSwitcher.addEventListener('click', (e) => {
             if (e.target.classList.contains('mood-btn')) {
                 const newMood = e.target.dataset.mood;
-                
-                // If focus timer is running, don't allow switch to "dance"
-                /* REMOVED THIS BLOCK
-                if (isFocusMode && newMood === 'dance') {
-                    // (Optional: show a message)
-                    return; // Don't switch
-                }
-                */
                 setMood(newMood);
             }
         });
@@ -768,6 +877,26 @@
             }
         });
 
-    </script>
-</body>
+        // --- Record Button Listener ---
+        recordButton.addEventListener('click', () => {
+            if (!isRecording) {
+                // Start recording
+                if (mediaRecorder && mediaRecorder.state === 'inactive') {
+                    mediaRecorder.start();
+                    isRecording = true;
+                    recordButton.textContent = 'Stop Recording';
+                    recordButton.classList.add('is-recording');
+                }
+            } else {
+                // Stop recording
+                if (mediaRecorder && mediaRecorder.state === 'recording') {
+                    mediaRecorder.stop();
+                    isRecording = false;
+                    recordButton.textContent = 'Start Recording';
+                    recordButton.classList.remove('is-recording');
+                }
+            }
+        });
+
+    </script></body>
 </html>
