@@ -116,6 +116,7 @@
         <div id="moodSwitcher" class="flex justify-center space-x-2 mb-10">
             <button class="mood-btn mood-active" data-mood="ambient">Ambient</button>
             <button class="mood-btn" data-mood="lofi">Lofi</button>
+            <button class="mood-btn" data-mood="dance">Dance</button>
         </div>
 
         <!-- Pulsing Visual -->
@@ -215,8 +216,24 @@
                 "harmonicity": 1,
                 "oscillator": { "type": "fatsine" }, // More like a rhodes
                 "envelope": { "attack": 0.1, "decay": 0.0, "sustain": 1, "release": 1.5 },
+            },
+            // NEW: Dance pad preset
+            dance: {
+                "harmonicity": 1,
+                "oscillator": { "type": "sawtooth" }, // Brighter sound
+                "envelope": { "attack": 0.01, "decay": 0.1, "sustain": 0.3, "release": 0.5 },
             }
         };
+
+        // 1c. NEW: Kick Drum
+        const kickSynth = new Tone.MembraneSynth({
+            "pitchDecay": 0.05,
+            "octaves": 10,
+            "oscillator": { "type": "sine" },
+            "envelope": { "attack": 0.001, "decay": 0.4, "sustain": 0.01, "release": 1.4 }
+        });
+        // By default, the kick is muted.
+        kickSynth.volume.value = -Infinity;
 
         // 2. Add some effects for that "premium" sound
         const reverb = new Tone.Reverb(1.5).toDestination(); // <-- This is our FINAL output
@@ -251,7 +268,11 @@
         // 5. Crusher goes to the FINAL Reverb
         lofiCrush.connect(reverb);
         
-        // 6. The main synth (analysed) also goes to the Lofi effects
+        // 6. The kick drum goes straight to the Lofi effects (and then reverb)
+        // This lets it get crunchy in Lofi mode too!
+        kickSynth.connect(lofiFilter);
+
+        // 7. The main synth (analysed) also goes to the Lofi effects
         // This bypasses the delay for the "dry" signal
         analyser.connect(lofiFilter);
 
@@ -265,7 +286,12 @@
             lofi: [
                 'C4', 'Eb4', 'F4', 'G4', 'Bb4',
                 'C5', 'Eb5', 'F5', 'G5', 'Bb5'
-            ]
+            ],
+            // NEW: Dance scale
+            dance: [
+                'C4', 'D4', 'E4', 'G4', 'A4',
+                'C5', 'D5', 'E5', 'G5', 'A5'
+            ] // Same as ambient, but we'll use it differently
         };
         let activeScale = scales.ambient; // Start with ambient
 
@@ -300,7 +326,14 @@
                 ['F3', 'Ab3', 'C4', 'Eb4'], // Fm7
                 ['Ab3', 'C4', 'Eb4', 'G4'], // Abmaj7
                 ['G3', 'B3', 'D4', 'F4']  // G7
-            ]
+            ],
+            // NEW: Dance chords (classic 1-5-6-4 progression)
+            dance: [
+                ['C3', 'E3', 'G3'], // C Major
+                ['G3', 'B3', 'D4'], // G Major
+                ['A3', 'C4', 'E4'], // A Minor
+                ['F3', 'A3', 'C4']  // F Major
+            ] // Same as ambient, but context will make it upbeat
         };
         let activeChords = chords.ambient;
         let chordIndex = 0;
@@ -315,13 +348,20 @@
             chordIndex = (chordIndex + 1) % activeChords.length;
         }, '2m'); // This loop runs every 2 measures
 
+        // 5c. NEW: Create a loop for the kick drum
+        const kickLoop = new Tone.Loop((time) => {
+            // "4n" = quarter note (four-on-the-floor beat)
+            kickSynth.triggerAttackRelease('C1', '8n', time);
+        }, '4n');
+
         // 6. Set the master transport (BPM)
         Tone.Transport.bpm.value = 90; // A calm, slow tempo
         
         // Start the loop (it's tied to the Transport, so it won't
         // make sound until Tone.Transport.start() is called)
         generativeLoop.start(0);
-        padLoop.start(0); // <-- Start the pad loop too
+        padLoop.start(0);
+        kickLoop.start(0); // <-- Start the kick loop (it's muted, so no sound yet)
 
         
         // --- Visual Loop ---
@@ -414,6 +454,9 @@
                 // Set Lofi effects "off" (clean signal)
                 lofiFilter.frequency.rampTo(20000, 0.5); // Open filter
                 lofiCrush.bits.value = 16; // 16 bits (clean)
+                
+                // Mute kick
+                kickSynth.volume.rampTo(-Infinity, 0.5);
 
             } else if (newMood === 'lofi') {
                 // Set notes and chords
@@ -426,6 +469,31 @@
                 // Set Lofi effects "on"
                 lofiFilter.frequency.rampTo(1500, 0.5); // Muffled filter
                 lofiCrush.bits.value = 8; // 8 bits (crunchy)
+                
+                // Mute kick
+                kickSynth.volume.rampTo(-Infinity, 0.5);
+
+            } else if (newMood === 'dance') {
+                // Set notes and chords
+                activeScale = scales.dance;
+                activeChords = chords.dance;
+
+                // Set pad synth preset
+                padSynth.set(padPresets.dance);
+
+                // Set Lofi effects "off"
+                lofiFilter.frequency.rampTo(20000, 0.5);
+                lofiCrush.bits.value = 16;
+                
+                // UN-Mute kick
+                kickSynth.volume.rampTo(0, 0.1); // 0dB (full volume)
+
+                // Suggest a faster tempo (but don't force it)
+                if (Tone.Transport.bpm.value < 100) {
+                    tempoSlider.value = 110;
+                    Tone.Transport.bpm.value = 110;
+                    tempoValue.textContent = "110 bpm";
+                }
             }
             
             // Reset chord index to avoid weird transitions
