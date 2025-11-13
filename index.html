@@ -24,7 +24,7 @@
             background: radial-gradient(ellipse at bottom, #1b2735 0%, #090a0f 100%);
         }
 
-        /* Custom style for the pulsing visual (we'll use this later) */
+        /* Custom style for the pulsing visual */
         #visual-pulsar {
             width: 100px;
             height: 100px;
@@ -90,7 +90,7 @@
             A Generative Music Box
         </p>
 
-        <!-- Pulsing Visual (Placeholder for now) -->
+        <!-- Pulsing Visual -->
         <div class="flex justify-center mb-12">
             <div id="visual-pulsar" class="shadow-2xl shadow-indigo-600/50"></div>
         </div>
@@ -123,6 +123,13 @@
                 <input type="range" id="reverb" min="0" max="1" value="0.3" step="0.01" class="w-full">
                 <span id="reverbValue" class="text-xs text-slate-400">30%</span>
             </div>
+
+            <!-- 4. NEW: Delay Slider -->
+            <div class="w-full">
+                <label for="delay" class="block text-sm font-medium text-slate-300 mb-2">Delay (Mix)</label>
+                <input type="range" id="delay" min="0" max="1" value="0" step="0.01" class="w-full">
+                <span id="delayValue" class="text-xs text-slate-400">0%</span>
+            </div>
         </div>
         <!-- --- END CONTROLS --- -->
 
@@ -139,6 +146,9 @@
         const densityValue = document.getElementById('densityValue');
         const reverbSlider = document.getElementById('reverb');
         const reverbValue = document.getElementById('reverbValue');
+        // NEW: Delay slider elements
+        const delaySlider = document.getElementById('delay');
+        const delayValue = document.getElementById('delayValue');
 
 
         // --- Audio State ---
@@ -148,16 +158,58 @@
         // --- Audio Setup ---
 
         // 1. Create the main instrument (a Frequency Modulation Synth)
-        // We send it 'toDestination' so we can hear it.
-        // *** FIX: Added synth definition ***
-        const synth = new Tone.FMSynth().toDestination();
+        const synth = new Tone.FMSynth(); // We won't send toDestination yet
+
+        // 1b. Create the Ambient Pad Synth
+        const padSynth = new Tone.PolySynth(Tone.AMSynth, {
+            "harmonicity": 1.2,
+            "oscillator" : {
+                "type" : "fatsawtooth"
+            },
+            "envelope" : {
+                "attack" : 2.5, // Slow attack
+                "decay" : 0.1,
+                "sustain" : 1,
+                "release" : 5 // Slow release
+            },
+        }); // <-- REMOVED .toDestination()
+        padSynth.volume.value = -18; // Very quiet
 
         // 2. Add some effects for that "premium" sound
         // A gentle reverb gives it space.
-        const reverb = new Tone.Reverb(1.5).toDestination(); // 1.5-second decay
-        synth.connect(reverb); // <-- This now works
+        const reverb = new Tone.Reverb(1.5).toDestination(); // <-- This is our FINAL output
         // Set initial reverb mix (wet/dry). We'll control this with the slider.
         reverb.wet.value = 0.3; // Start at 30% wet
+
+        // 2b. NEW: Add PingPongDelay
+        // "4n" = quarter note delay. 0.2 feedback.
+        const pingPongDelay = new Tone.PingPongDelay("4n", 0.2);
+        // Set initial mix to 0 (off).
+        pingPongDelay.wet.value = 0; 
+
+        // 2c. Create an Analyser for the visual
+        const analyser = new Tone.Analyser('waveform', 128);
+        
+        // --- Audio Routing (This is the important part) ---
+        
+        // 1. Main synth goes to the analyser first
+        synth.connect(analyser);
+        
+        // 2. Analysed signal goes to the Reverb
+        analyser.connect(reverb);
+        
+        // 3. Analysed signal ALSO goes to the Delay
+        analyser.connect(pingPongDelay);
+
+        // 4. The Delay's output ALSO goes to the Reverb
+        // (This makes the echos sound "washed out" and spacious)
+        pingPongDelay.connect(reverb);
+
+        // 5. The Pad synth goes straight to the Reverb
+        padSynth.connect(reverb);
+        
+        // (Now, all sound correctly goes through the Reverb as the final master)
+
 
         // 3. Define the "palette" of notes (C Major Pentatonic)
         // This is a "safe" scale where most notes sound good together,
@@ -168,12 +220,9 @@
         ];
 
         // 4. Generative Logic Parameters
-        // We will hook these up to sliders later.
         let density = 0.35; // (35% chance a note will play)
 
         // 5. Create a generative loop
-        // We replace Tone.Sequence with Tone.Loop.
-        // This loop will run every 16th note ('16n').
         const generativeLoop = new Tone.Loop((time) => {
             // Decision 1: Play or Rest?
             // We check our "density" parameter.
@@ -185,25 +234,67 @@
                 
                 // Trigger the synth. '8n' duration gives it a nice, gentle feel.
                 synth.triggerAttackRelease(note, '8n', time);
-                
-                // Trigger the visual pulse
-                // (We'll make this more accurate with Tone.Analyser later)
-                pulsar.style.transform = 'scale(1.1)';
-                setTimeout(() => {
-                    pulsar.style.transform = 'scale(1)';
-                }, 100); // Reset after 100ms
             }
         }, '16n'); // The interval of the loop
 
+        // 5b. Create a loop for the ambient pad
+        // We'll use a simple, pleasant chord progression
+        const chords = [
+            ['C3', 'E3', 'G3'], // C Major
+            ['G3', 'B3', 'D4'], // G Major
+            ['A3', 'C4', 'E4'], // A Minor
+            ['F3', 'A3', 'C4']  // F Major
+        ];
+        let chordIndex = 0;
+
+        const padLoop = new Tone.Loop((time) => {
+            // Get the current chord
+            const currentChord = chords[chordIndex];
+            // Trigger it with a long duration ('2m' = 2 measures)
+            padSynth.triggerAttackRelease(currentChord, '2m', time);
+            
+            // Move to the next chord
+            chordIndex = (chordIndex + 1) % chords.length;
+        }, '2m'); // This loop runs every 2 measures
+
         // 6. Set the master transport (BPM)
-        // This will be controlled by a slider later.
         Tone.Transport.bpm.value = 90; // A calm, slow tempo
         
         // Start the loop (it's tied to the Transport, so it won't
         // make sound until Tone.Transport.start() is called)
         generativeLoop.start(0);
+        padLoop.start(0); // <-- Start the pad loop too
 
         
+        // --- Visual Loop ---
+        // Function to update visual based on analyser
+        function drawLoop() {
+            // Get the analyser's value (an array of numbers)
+            const values = analyser.getValue();
+            // We'll just take the first value and find its magnitude
+            let sum = 0;
+            if (values.length > 0) {
+                // Let's average the first few values for a stable "pulse"
+                for(let i = 0; i < 10; i++) {
+                    sum += Math.abs(values[i] || 0); // (add || 0 for safety)
+                }
+                let avg = sum / 10;
+                
+                // Map the value to a scale transformation
+                // The '1' is the base scale, and 'avg * 5' is the pulse amount.
+                // We multiply by 5 just to make the effect more visible.
+                const scale = 1 + avg * 5;
+                
+                // Apply the scale to the pulsar element
+                pulsar.style.transform = `scale(${scale})`;
+            }
+
+            // Keep the loop running if we are playing
+            if (isPlaying) {
+                requestAnimationFrame(drawLoop);
+            }
+        }
+
         // --- Event Listeners ---
 
         // Slider Listeners
@@ -225,22 +316,23 @@
             reverbValue.textContent = `${Math.floor(newReverb * 100)}%`;
         });
 
+        // NEW: Delay listener
+        delaySlider.addEventListener('input', (e) => {
+            const newDelay = e.target.value;
+            pingPongDelay.wet.value = newDelay;
+            delayValue.textContent = `${Math.floor(newDelay * 100)}%`;
+        });
+
 
         // The browser requires user interaction to start audio.
-        // We'll use this function to initialize Tone.js on the first click.
         async function initializeAudio() {
-            // This is deprecated but necessary for some browsers
             await Tone.start();
             console.log('AudioContext started and ready.');
             isInitialized = true;
-            // No longer needed, as we enable on Tone.loaded()
-            // startButton.disabled = false;
-            // startButton.textContent = 'Start';
         }
         
         // We can initialize asynchronously as soon as the page loads,
         // but the 'Start' button click will also force it.
-        // Let's try to load it gently first.
         Tone.loaded().then(() => {
             // Once the library is loaded, just enable the button.
             // Don't try to start the audio context yet.
@@ -251,13 +343,11 @@
         });
 
         // Main play/stop toggle
-        startButton.addEventListener('click', async () => { // <-- Add 'async'
+        startButton.addEventListener('click', async () => {
             // If audio isn't on, this click will be the first user gesture.
             // We must 'await' Tone.start() on the first click.
             if (!isInitialized) {
-                await Tone.start(); // <-- New, correct way
-                console.log('AudioContext started and ready.');
-                isInitialized = true;
+                await initializeAudio();
             }
 
             // Toggle play/stop
@@ -266,6 +356,8 @@
                 Tone.Transport.start();
                 startButton.textContent = 'Stop';
                 isPlaying = true;
+                // Start the visual draw loop
+                requestAnimationFrame(drawLoop);
             } else {
                 // Stop the transport
                 Tone.Transport.stop();
