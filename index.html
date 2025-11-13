@@ -235,6 +235,25 @@
         // By default, the kick is muted.
         kickSynth.volume.value = -Infinity;
 
+        // 1d. NEW: Hi-Hat
+        const hiHatSynth = new Tone.NoiseSynth({
+            "noise": { "type": "white" },
+            "envelope": { "attack": 0.001, "decay": 0.1, "sustain": 0, "release": 0.1 }
+        });
+        hiHatSynth.volume.value = -Infinity; // Muted by default
+
+        // --- Hi-Hat Synth Presets ---
+        const hiHatPresets = {
+            lofi: {
+                "noise": { "type": "pink" }, // Warmer/softer 'shaker' sound
+                "envelope": { "attack": 0.01, "decay": 0.15, "sustain": 0 }
+            },
+            dance: {
+                "noise": { "type": "white" }, // Brighter/tighter 'hat' sound
+                "envelope": { "attack": 0.001, "decay": 0.05, "sustain": 0 }
+            }
+        };
+
         // 2. Add some effects for that "premium" sound
         const reverb = new Tone.Reverb(1.5).toDestination(); // <-- This is our FINAL output
         reverb.wet.value = 0.3;
@@ -275,6 +294,9 @@
         // 7. The main synth (analysed) also goes to the Lofi effects
         // This bypasses the delay for the "dry" signal
         analyser.connect(lofiFilter);
+
+        // 8. NEW: Hi-hat also goes to Lofi filter
+        hiHatSynth.connect(lofiFilter);
 
 
         // 3. Define the "palette" of notes
@@ -354,6 +376,25 @@
             kickSynth.triggerAttackRelease('C1', '8n', time);
         }, '4n');
 
+        // 5d. NEW: Create a loop for the hi-hat
+        const hiHatPatterns = {
+            ambient: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0], // Off
+            lofi:    [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0], // Off-beat 'shaker' (on the '&')
+            dance:   [0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 1, 0]  // Off-beat 8th note
+        };
+        let hiHatPattern = hiHatPatterns.ambient;
+        let hiHatStep = 0;
+
+        const hiHatLoop = new Tone.Loop((time) => {
+            let patternStep = hiHatPattern[hiHatStep];
+            if (patternStep === 1) {
+                // Use triggerAttack for a very short, percussive sound
+                hiHatSynth.triggerAttack(time);
+            }
+            hiHatStep = (hiHatStep + 1) % hiHatPattern.length;
+        }, '16n'); // This loop must run every 16th note to read the pattern
+
+
         // 6. Set the master transport (BPM)
         Tone.Transport.bpm.value = 90; // A calm, slow tempo
         
@@ -362,6 +403,7 @@
         generativeLoop.start(0);
         padLoop.start(0);
         kickLoop.start(0); // <-- Start the kick loop (it's muted, so no sound yet)
+        hiHatLoop.start(0); // <-- Start the hi-hat loop (also muted)
 
         
         // --- Visual Loop ---
@@ -457,6 +499,9 @@
                 
                 // Mute kick
                 kickSynth.volume.rampTo(-Infinity, 0.5);
+                // Mute hi-hat
+                hiHatSynth.volume.rampTo(-Infinity, 0.5);
+                hiHatPattern = hiHatPatterns.ambient;
 
             } else if (newMood === 'lofi') {
                 // Set notes and chords
@@ -472,6 +517,11 @@
                 
                 // Mute kick
                 kickSynth.volume.rampTo(-Infinity, 0.5);
+                
+                // UN-Mute hi-hat (lofi style)
+                hiHatSynth.set(hiHatPresets.lofi);
+                hiHatPattern = hiHatPatterns.lofi;
+                hiHatSynth.volume.rampTo(-12, 0.5); // Quiet 'shaker' volume
 
             } else if (newMood === 'dance') {
                 // Set notes and chords
@@ -488,6 +538,11 @@
                 // UN-Mute kick
                 kickSynth.volume.rampTo(0, 0.1); // 0dB (full volume)
 
+                // UN-Mute hi-hat (dance style)
+                hiHatSynth.set(hiHatPresets.dance);
+                hiHatPattern = hiHatPatterns.dance;
+                hiHatSynth.volume.rampTo(-8, 0.1); // Louder 'hat' volume
+
                 // Suggest a faster tempo (but don't force it)
                 if (Tone.Transport.bpm.value < 100) {
                     tempoSlider.value = 110;
@@ -498,6 +553,7 @@
             
             // Reset chord index to avoid weird transitions
             chordIndex = 0;
+            hiHatStep = 0; // Reset hi-hat pattern
         }
 
 
