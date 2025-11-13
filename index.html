@@ -177,9 +177,20 @@
             cursor: not-allowed;
             opacity: 0.5;
         }
-        #recordButton:disabled:hover {
-            background-color: #374151;
-            color: #6B7280;
+
+        /* NEW: Share button styles */
+        #shareButton {
+            background-color: transparent;
+            color: #818CF8; /* indigo-300 */
+            border: 1px solid #4F46E5; /* indigo-600 */
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 9999px;
+            transition: all 0.2s ease-in-out;
+        }
+        #shareButton:hover {
+            background-color: #4F46E5;
+            color: #FFFFFF;
         }
 
         @keyframes pulse {
@@ -301,13 +312,19 @@
             <div class="bg-gray-800 shadow-xl rounded-2xl p-6">
                 <h2 class="text-lg font-medium text-gray-300 mb-4 text-center">Output</h2>
                 <!-- Export Audio Section (Moved) -->
-                <div class="text-center">
+                <!-- REFACTORED: Use flex to put buttons side-by-side -->
+                <div class="flex justify-center gap-4">
                     <button id="recordButton" disabled>Start Recording</button>
-                    <p id="recordHelpText" class="text-xs text-gray-500 mt-3">Start music to enable recording.</p>
+                    <!-- NEW: Share Button -->
+                    <button id="shareButton">Share Sound</button>
                 </div>
+                <p id="recordHelpText" class="text-xs text-gray-500 mt-3 text-center">Start music to enable recording.</p>
             </div>
             
         </div> <!-- End of Grid Container -->
+
+        <!-- NEW: Hidden textarea for clipboard copy -->
+        <textarea id="shareTextArea" class="absolute -left-full"></textarea>
 
     </div>
 
@@ -341,6 +358,7 @@
 
         let isPlaying = false;
         let density = 0.35; // Default density
+        let currentMood = 'ambient'; // NEW: Global mood tracker
 
         // --- Audio Recorder Elements ---
         const recordButton = document.getElementById('recordButton');
@@ -627,6 +645,8 @@
 
         // Function to change the mood
         function setMood(newMood) {
+            currentMood = newMood; // Set global mood tracker
+
             // Update button UI
             document.querySelectorAll('.mood-btn').forEach(btn => {
                 if (btn.dataset.mood === newMood) {
@@ -696,6 +716,69 @@
             // Reset chord index to avoid weird transitions
             chordIndex = 0;
             hiHatStep = 0; // Reset hi-hat pattern
+        }
+
+        // NEW: Function to get the current state of all controls
+        function getCurrentState() {
+            return {
+                mood: currentMood,
+                tempo: tempoSlider.value,
+                density: densitySlider.value,
+                reverb: reverbSlider.value,
+                delay: delaySlider.value
+            };
+        }
+
+        // NEW: Function to apply a state object to the UI and audio engine
+        function applyState(state) {
+            // Set sliders
+            tempoSlider.value = state.tempo;
+            densitySlider.value = state.density;
+            reverbSlider.value = state.reverb;
+            delaySlider.value = state.delay;
+
+            // Trigger 'input' event to update audio and text labels
+            // This is crucial so we don't have to write the update logic twice
+            tempoSlider.dispatchEvent(new Event('input'));
+            densitySlider.dispatchEvent(new Event('input'));
+            reverbSlider.dispatchEvent(new Event('input'));
+            delaySlider.dispatchEvent(new Event('input'));
+
+            // Set mood
+            setMood(state.mood);
+        }
+
+        // NEW: Function to robustly copy text to clipboard (works in iFrames)
+        function copyToClipboard(text) {
+            const shareTextArea = document.getElementById('shareTextArea');
+            shareTextArea.value = text;
+            shareTextArea.select();
+            try {
+                document.execCommand('copy');
+                return true;
+            } catch (err) {
+                console.error('Failed to copy text: ', err);
+                return false;
+            }
+        }
+
+        // NEW: Function to read parameters from URL on load
+        function loadStateFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            // Check if *any* param exists. If not, use defaults.
+            if (!params.has('mood')) {
+                return; // No params, just load defaults
+            }
+            
+            const state = {
+                mood: params.get('mood') || 'ambient',
+                tempo: parseInt(params.get('tempo')) || 90,
+                density: parseInt(params.get('density')) || 35,
+                reverb: parseInt(params.get('reverb')) || 25,
+                delay: parseInt(params.get('delay')) || 10
+            };
+            
+            applyState(state);
         }
 
         // Function to start the music
@@ -839,6 +922,10 @@
             kickLoop.start(0);
             hiHatLoop.start(0);
             
+            // --- NEW: Load state from URL ---
+            // This must run BEFORE resetUIToIdle to set the controls
+            loadStateFromURL();
+
             // Set initial UI state
             resetUIToIdle();
 
@@ -944,6 +1031,29 @@
                     recordButton.textContent = 'Start Recording';
                     recordButton.classList.remove('is-recording');
                 }
+            }
+        });
+
+        // --- NEW: Share Button Listener ---
+        const shareButton = document.getElementById('shareButton');
+        shareButton.addEventListener('click', () => {
+            const state = getCurrentState();
+            const params = new URLSearchParams(state).toString();
+            const shareURL = `${window.location.origin}${window.location.pathname}?${params}`;
+            
+            if (copyToClipboard(shareURL)) {
+                // Give user feedback
+                const originalText = shareButton.textContent;
+                shareButton.textContent = 'Link Copied!';
+                shareButton.classList.add('bg-indigo-600', 'text-white'); // Make it "pop"
+                
+                setTimeout(() => {
+                    shareButton.textContent = originalText;
+                    shareButton.classList.remove('bg-indigo-600', 'text-white');
+                }, 2000);
+            } else {
+                // Handle browsers that fail (e.g., in a very secure sandbox)
+                alert('Could not copy link. Your browser may not support this feature.');
             }
         });
 
