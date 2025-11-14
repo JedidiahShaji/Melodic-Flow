@@ -9,23 +9,29 @@
     <!-- Load Tone.js -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.7.77/Tone.js"></script>
     
-    <!-- NEW: Load Google Fonts (Inter for UI, Orbitron for Title) -->
+    <!-- Load Google Font (Inter for UI) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&family=Orbitron:wght@700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;700&display=swap" rel="stylesheet">
 
     <style>
         /* Custom styles for the app */
         body {
-            /* NEW: Set default font to Inter */
+            /* Set default font to Inter */
             font-family: 'Inter', sans-serif;
             -webkit-font-smoothing: antialiased;
             -moz-osx-font-smoothing: grayscale;
         }
         
-        /* NEW: Futuristic title style */
-        .title-futuristic {
-            font-family: 'Orbitron', sans-serif;
+        /* NEW: Premium Inset Title Style */
+        .title-premium-inset {
+            font-size: 2.5rem; /* 40px */
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            color: #4B5563; /* gray-600 */
+            /* Inset shadow effect */
+            text-shadow: 0 1px 1px #1F2937, /* Top shadow (dark) */
+                         0 -1px 1px #6B7280; /* Bottom highlight (light) */
         }
 
         /* Custom slider styles */
@@ -69,10 +75,7 @@
             background: #FFFFFF;
         }
 
-        /* Pulsing visual element */
-        /* REMOVED #visual-pulsar styles */
-
-        /* NEW: Canvas styles */
+        /* Canvas styles */
         #visual-canvas {
             width: 100%;
             height: 100%;
@@ -178,7 +181,7 @@
             opacity: 0.5;
         }
 
-        /* NEW: Share button styles */
+        /* Share button styles */
         #shareButton {
             background-color: transparent;
             color: #818CF8; /* indigo-300 */
@@ -193,6 +196,45 @@
             color: #FFFFFF;
         }
 
+        /* Preset menu styles */
+        #presetMenu {
+            background-color: #374151; /* gray-700 */
+            color: #F0F0F0;
+            border: 1px solid #4B5563; /* gray-600 */
+            border-radius: 8px;
+            padding: 8px 12px;
+            flex-grow: 1; /* Take up available space */
+        }
+        #deletePresetButton {
+            background-color: transparent;
+            color: #EF4444; /* red-500 */
+            border: 1px solid #B91C1C; /* red-700 */
+            font-weight: 500;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: all 0.2s ease-in-out;
+        }
+        #deletePresetButton:hover {
+            background-color: #B91C1C;
+            color: #FFFFFF;
+        }
+        
+        /* Inline text input for saving */
+        #presetNameInput {
+            background-color: #374151; /* gray-700 */
+            color: #F0F0F0;
+            border: 1px solid #4B5563; /* gray-600 */
+            border-radius: 8px;
+            padding: 8px 12px;
+            flex-grow: 1;
+        }
+        
+        /* Helper for hiding/showing elements cleanly */
+        .hidden {
+            display: none;
+        }
+
+
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
@@ -206,8 +248,8 @@
         
         <!-- Header -->
         <header class="text-center">
-            <!-- NEW: Added classes for futuristic title -->
-            <h1 class="title-futuristic text-4xl font-bold tracking-wider bg-clip-text text-transparent bg-gradient-to-r from-indigo-400 to-purple-400">MelodicFlow</h1>
+            <!-- REFACTORED: Using new premium inset title class -->
+            <h1 class="title-premium-inset">MelodicFlow</h1>
             <p class="text-lg text-gray-400">A Generative Music Box</p>
         </header>
 
@@ -271,7 +313,7 @@
                         <span id="densityValue" class="text-sm text-gray-400 tabular-nums">35%</span>
                     </div>
                     <input type="range" id="densitySlider" min="0" max="100" value="35" class="w-full">
-                    <!-- NEW: Added helper text for clarity -->
+                    <!-- Added helper text for clarity -->
                     <p class="text-xs text-gray-500 italic pt-1">Controls the chance of a note playing on each beat.</p>
                 </div>
             </div>
@@ -312,15 +354,45 @@
             <div class="bg-gray-800 shadow-xl rounded-2xl p-6">
                 <h2 class="text-lg font-medium text-gray-300 mb-4 text-center">Output</h2>
                 <!-- Export Audio Section (Moved) -->
-                <!-- REFACTORED: Use flex to put buttons side-by-side -->
-                <div class="flex justify-center gap-4">
-                    <button id="recordButton" disabled>Start Recording</button>
-                    <!-- NEW: Share Button -->
-                    <button id="shareButton">Share Sound</button>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <button id="recordButton" class="sm:col-span-1" disabled>Record</button>
+                    <button id="shareButton" class="sm:col-span-1">Share</button>
                 </div>
                 <p id="recordHelpText" class="text-xs text-gray-500 mt-3 text-center">Start music to enable recording.</p>
             </div>
             
+            <!-- REFACTORED: Card 5 - Presets (Now with inline saving UI) -->
+            <div class="bg-gray-800 shadow-xl rounded-2xl p-6 md:col-span-2 space-y-4">
+                <h2 class="text-lg font-medium text-gray-300">My Presets</h2>
+                
+                <!-- Preset Loading UI (Always visible) -->
+                <div id="loadPresetUI" class="flex flex-col sm:flex-row gap-4">
+                    <select id="presetMenu" name="presetMenu">
+                        <option value="">Select a preset...</option>
+                        <!-- Presets will be loaded here by JS -->
+                    </select>
+                    <button id="deletePresetButton" class="focus-btn">Delete</button>
+                    <button id="savePresetButton" class="focus-btn border-emerald-600 text-emerald-400 hover:bg-emerald-600 hover:text-white">Save Current</button>
+                </div>
+
+                <!-- NEW: Preset Deleting UI (Hidden by default) -->
+                <div id="deleteConfirmUI" class="hidden flex-col sm:flex-row gap-4 items-center">
+                    <span class="text-sm text-gray-300 flex-grow">Delete this preset?</span>
+                    <button id="confirmDeleteButton" class="focus-btn border-red-700 text-red-500 hover:bg-red-700 hover:text-white">Yes, Delete</button>
+                    <button id="cancelDeleteButton" class="focus-btn">Cancel</button>
+                </div>
+                
+                <!-- NEW: Preset Saving UI (Hidden by default) -->
+                <div id="savePresetUI" class="hidden flex-col sm:flex-row gap-4">
+                    <input type="text" id="presetNameInput" placeholder="Enter preset name..." />
+                    <button id="confirmSaveButton" class="focus-btn border-emerald-600 text-emerald-400 hover:bg-emerald-600 hover:text-white">Save</button>
+                    <button id="cancelSaveButton" class="focus-btn">Cancel</button>
+                </div>
+
+                <!-- NEW: Preset help text area -->
+                <p id="presetHelpText" class="text-xs text-gray-500 h-4"></p> <!-- Empty space for messages -->
+            </div>
+
         </div> <!-- End of Grid Container -->
 
         <!-- NEW: Hidden textarea for clipboard copy -->
@@ -331,11 +403,12 @@
     <script>
         // --- UI Elements ---
         const startButton = document.getElementById('startButton');
-        // ... existing code ... */
         const densitySlider = document.getElementById('densitySlider');
         const densityValue = document.getElementById('densityValue');
         const reverbSlider = document.getElementById('reverbSlider');
-        // ... existing code ... */
+        const reverbValue = document.getElementById('reverbValue');
+        const tempoSlider = document.getElementById('tempoSlider');
+        const tempoValue = document.getElementById('tempoValue');
         const delaySlider = document.getElementById('delaySlider');
         const delayValue = document.getElementById('delayValue');
         const moodSwitcher = document.getElementById('moodSwitcher');
@@ -363,6 +436,22 @@
         // --- Audio Recorder Elements ---
         const recordButton = document.getElementById('recordButton');
         const recordHelpText = document.getElementById('recordHelpText'); // New help text element
+        
+        // --- REFACTORED: Preset Elements ---
+        const loadPresetUI = document.getElementById('loadPresetUI');
+        const savePresetUI = document.getElementById('savePresetUI');
+        const deleteConfirmUI = document.getElementById('deleteConfirmUI');
+        const savePresetButton = document.getElementById('savePresetButton');
+        const presetNameInput = document.getElementById('presetNameInput');
+        const confirmSaveButton = document.getElementById('confirmSaveButton');
+        const cancelSaveButton = document.getElementById('cancelSaveButton');
+        const presetMenu = document.getElementById('presetMenu');
+        const deletePresetButton = document.getElementById('deletePresetButton');
+        const confirmDeleteButton = document.getElementById('confirmDeleteButton');
+        const cancelDeleteButton = document.getElementById('cancelDeleteButton');
+        const presetHelpText = document.getElementById('presetHelpText');
+        const PRESETS_STORAGE_KEY = 'melodicFlowPresets';
+
         let mediaRecorder;
         let recordedChunks = [];
         let isRecording = false;
@@ -718,6 +807,60 @@
             hiHatStep = 0; // Reset hi-hat pattern
         }
 
+        // --- NEW: Preset Management Functions ---
+
+        // Load all presets from localStorage
+        function loadPresets() {
+            const presets = localStorage.getItem(PRESETS_STORAGE_KEY);
+            return presets ? JSON.parse(presets) : [];
+        }
+
+        // Save an array of presets to localStorage
+        function savePresets(presets) {
+            localStorage.setItem(PRESETS_STORAGE_KEY, JSON.stringify(presets));
+        }
+
+        // Update the <select> dropdown menu with current presets
+        function updatePresetMenu() {
+            const presets = loadPresets();
+            presetMenu.innerHTML = ''; // Clear existing options
+            
+            // Add default option
+            const defaultOption = document.createElement('option');
+            defaultOption.value = "";
+            defaultOption.textContent = "Select a preset...";
+            presetMenu.appendChild(defaultOption);
+            
+            // Add saved presets
+            presets.forEach((preset, index) => {
+                const option = document.createElement('option');
+                option.value = index; // Use index as the value
+                option.textContent = preset.name;
+                presetMenu.appendChild(option);
+            });
+        }
+        
+        // Show a temporary message in the preset help text area
+        function showPresetMessage(message, isError = false) {
+            presetHelpText.textContent = message;
+            presetHelpText.className = isError ? 'text-xs text-red-400 h-4' : 'text-xs text-green-400 h-4';
+            
+            setTimeout(() => {
+                presetHelpText.textContent = '';
+                presetHelpText.className = 'text-xs text-gray-500 h-4';
+            }, 3000);
+        }
+        
+        // Reset the preset UI to its default state
+        function resetPresetUI() {
+            loadPresetUI.classList.remove('hidden');
+            savePresetUI.classList.add('hidden');
+            deleteConfirmUI.classList.add('hidden');
+            presetNameInput.value = ''; // Clear input
+        }
+
+        // --- End Preset Functions ---
+
         // NEW: Function to get the current state of all controls
         function getCurrentState() {
             return {
@@ -762,7 +905,7 @@
             }
         }
 
-        // NEW: Function to read parameters from URL on load
+// NEW: Function to read parameters from URL on load
         function loadStateFromURL() {
             const params = new URLSearchParams(window.location.search);
             // Check if *any* param exists. If not, use defaults.
@@ -802,8 +945,6 @@
             } else {
                 timerDisplay.textContent = "Free Play";
             }
-            
-            // REMOVED: requestAnimationFrame(drawLoop) - We start this on load now
             
             // REFACTORED: Enable record button
             recordButton.disabled = false;
@@ -875,7 +1016,7 @@
             focusTimerInterval = null;
             isFocusMode = false;
             
-            if (playChGime) {
+            if (playChime) {
                 // Play a nice chime sound
                 chimeSynth.triggerAttackRelease('C5', '2n', Tone.now());
                 chimeSynth.triggerAttackRelease('E5', '2n', Tone.now() + 0.5);
@@ -929,6 +1070,9 @@
             // Set initial UI state
             resetUIToIdle();
 
+            // --- NEW: Populate preset menu on load ---
+            updatePresetMenu();
+
             // --- NEW: Setup Canvas Sizing and Start Draw Loop ---
             function resizeCanvas() {
                 // Set canvas internal resolution to match its displayed size
@@ -967,7 +1111,6 @@
         });
         
         // Stop Button (handles all stopping)
-        // FIX: Removed the extra '();' which was causing a SyntaxError
         stopFocusBtn.addEventListener('click', () => { 
             stopFocusTimer(false); // Stop manually, no chime
         });
@@ -1052,9 +1195,95 @@
                     shareButton.classList.remove('bg-indigo-600', 'text-white');
                 }, 2000);
             } else {
-                // Handle browsers that fail (e.g., in a very secure sandbox)
-                alert('Could not copy link. Your browser may not support this feature.');
+                // REFACTORED: No alert
+                showPresetMessage('Could not copy link to clipboard.', true);
             }
+        });
+
+        // --- REFACTORED: Preset Button Listeners (No prompts/alerts) ---
+        
+        // "Save Current" Button
+        savePresetButton.addEventListener('click', () => {
+            // Show the save UI
+            loadPresetUI.classList.add('hidden');
+            savePresetUI.classList.remove('hidden');
+            presetNameInput.focus();
+        });
+
+        // "Cancel Save" Button
+        cancelSaveButton.addEventListener('click', () => {
+            resetPresetUI();
+        });
+
+        // "Confirm Save" Button
+        confirmSaveButton.addEventListener('click', () => {
+            const name = presetNameInput.value;
+            if (!name || name.trim() === '') {
+                showPresetMessage('Please enter a name.', true);
+                return;
+            }
+            
+            const presets = loadPresets();
+            const newState = getCurrentState();
+            
+            presets.push({ name: name.trim(), state: newState });
+            savePresets(presets);
+            updatePresetMenu(); // Refresh the menu
+            
+            // Automatically select the new preset
+            presetMenu.value = presets.length - 1;
+            
+            resetPresetUI();
+            showPresetMessage('Preset saved!', false);
+        });
+
+        // Load Preset from Menu
+        presetMenu.addEventListener('change', (e) => {
+            const presetIndex = e.target.value;
+            if (presetIndex === "") return; // "Select a preset" was chosen
+            
+            const presets = loadPresets();
+            const selectedPreset = presets[presetIndex];
+            
+            if (selectedPreset) {
+                applyState(selectedPreset.state);
+            }
+        });
+        
+        // "Delete" Button
+        deletePresetButton.addEventListener('click', () => {
+            const presetIndex = presetMenu.value;
+            if (presetIndex === "") {
+                showPresetMessage('Select a preset to delete.', true);
+                return;
+            }
+            
+            // Show the confirm UI
+            loadPresetUI.classList.add('hidden');
+            deleteConfirmUI.classList.remove('hidden');
+        });
+
+        // "Cancel Delete" Button
+        cancelDeleteButton.addEventListener('click', () => {
+            resetPresetUI();
+        });
+
+        // "Confirm Delete" Button
+        confirmDeleteButton.addEventListener('click', () => {
+            const presetIndex = presetMenu.value;
+            // No need to check again, but good practice
+            if (presetIndex === "") {
+                resetPresetUI();
+                return;
+            } 
+            
+            const presets = loadPresets();
+            presets.splice(presetIndex, 1); // Remove the preset at that index
+            savePresets(presets);
+            updatePresetMenu(); // Refresh the menu
+            
+            resetPresetUI();
+            showPresetMessage('Preset deleted.', false);
         });
 
     </script></body>
